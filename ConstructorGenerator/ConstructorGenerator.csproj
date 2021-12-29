@@ -4,6 +4,10 @@
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
+        <Authors>Tim Nootny</Authors>
+        <Description>Generates constructors for you.</Description>
+        <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
+        <PackageTags>generator; c#; constructor</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,5 +20,4 @@
         <EmbeddedResource Include="Generation\GenerateConstructorTemplate.txt" />
         <EmbeddedResource Include="Attributes.txt" />
     </ItemGroup>
-
 </Project>
