@@ -1,0 +1,16 @@
+using System;
+
+namespace ConstructorGenerator
+{
+     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+     internal class ConstructorDependencyAttribute : Attribute
+     {
+          public bool IsOptional { get; set; }
+     }
+     
+     [AttributeUsage(AttributeTargets.Class)]
+     internal class GenerateBaseConstructorCallAttribute : Attribute
+     {
+     
+     }
+}

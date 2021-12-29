@@ -1,0 +1,11 @@
+﻿namespace $Namespace$
+{
+	$Access_Modifier$ partial class $Class_Name$ $Type_Arguments$
+	{
+		public $Class_Name$ ($Parameter_List$)
+			$Base_Parameter_List$
+		{
+			$Assignment_List$
+		}
+	}
+}
