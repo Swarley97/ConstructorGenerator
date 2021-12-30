@@ -8,9 +8,13 @@
         <Description>Generates constructors for you.</Description>
         <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
         <PackageTags>generator; c#; constructor</PackageTags>
-    </PropertyGroup>
-
-    <ItemGroup>
+        <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
+        <Version>$(VersionPrefix)0.1.0</Version>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+	
+	<ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.8.0" PrivateAssets="all" />
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.2" PrivateAssets="all" />
     </ItemGroup>
