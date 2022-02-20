@@ -1,3 +1,4 @@
+using System;
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,20 +36,35 @@ internal class GenerateConstructorTask
 	}
 	private string ReplaceParameterFields(string template, GenerateParameterList parameterList)
 	{
-		string parameterListText = string.Join(",\n", parameterList.AllParameters.Select(x => $"{x.Type} {x.Name}"));
+		string parameterListText = string.Join(", ", parameterList.AllParameters.Select(x => $"{x.Type} {x.Name}"));
 		template = template.Replace("$Parameter_List$", parameterListText);
 
+		int indexOfAssignmentList = template.IndexOf("$Assignment_List$", StringComparison.OrdinalIgnoreCase) - 1;
+		StringBuilder prefixBuilder = new();
+		for (int i = indexOfAssignmentList; i > 0; i--)
+		{
+			char current = template[i];
+			if (current is '\n' or '\r')
+				break;
+
+			if (current == '\t' || char.IsWhiteSpace(current))
+				prefixBuilder.Append(current);
+		}
+
+		string prefix = prefixBuilder.ToString();
+		bool firstProcessed = false;
 		StringBuilder builder = new();
-		foreach (var parameter in parameterList.Parameters)
+		foreach (GenerateParameter? parameter in parameterList.Parameters)
 		{
 			if (parameter.Origin.AssignmentTargetMemberName == null)
 				continue;
 
-			builder.AppendLine($"{parameter.Origin.AssignmentTargetMemberName} = {parameter.Name};");
+			builder.AppendLine($"{(firstProcessed ? prefix : string.Empty)}{parameter.Origin.AssignmentTargetMemberName} = {parameter.Name};");
+			firstProcessed = true;
 		}
 		template = template.Replace("$Assignment_List$", builder.ToString());
 		template = template.Replace("$Base_Parameter_List$", 
-			string.Join(",\n", parameterList.BaseParameters.Select(x => x.Name)));
+			string.Join(", ", parameterList.BaseParameters.Select(x => x.Name)));
 		
 		return template;
 	}
