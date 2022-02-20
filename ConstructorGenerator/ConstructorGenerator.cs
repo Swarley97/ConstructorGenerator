@@ -2,6 +2,7 @@
 using ConstructorGenerator.Model;
 using Microsoft.CodeAnalysis;
 using System.Linq;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ConstructorGenerator
 {
@@ -11,6 +12,7 @@ namespace ConstructorGenerator
         public void Initialize(GeneratorInitializationContext context)
         {
             context.RegisterForSyntaxNotifications(() => new ConstructorDependencySyntaxReceiver());
+            context.RegisterForPostInitialization(initializationContext => initializationContext.AddSource("ConstructorGenerator_Attributes.g.cs", CodeTemplates.AttributeTemplate));
         }
         
         public void Execute(GeneratorExecutionContext context)
@@ -18,9 +20,7 @@ namespace ConstructorGenerator
             if (context.SyntaxReceiver is not ConstructorDependencySyntaxReceiver attributeSyntaxReceiver)
                 return;
 
-            context.AddSource("ConstructorGenerator_Attributes.g.cs", CodeTemplates.AttributeTemplate);
-
-            var classesToInspect = attributeSyntaxReceiver.ClassesWithBaseConstructorAttribute
+            ClassDeclarationSyntax[] classesToInspect = attributeSyntaxReceiver.ClassesWithBaseConstructorAttribute
                 .Concat(attributeSyntaxReceiver.ClassesWithConstructorDependencyAttributes)
                 .ToArray();
 
