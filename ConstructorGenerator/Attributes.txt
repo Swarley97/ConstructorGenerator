@@ -5,6 +5,11 @@ namespace ConstructorGenerator
      [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
      internal class ConstructorDependencyAttribute : Attribute
      {
+          internal ConstructorDependencyAttribute(bool isOptional = false)
+          {
+                IsOptional = isOptional;
+          }
+     
           public bool IsOptional { get; set; }
      }
      
@@ -12,5 +17,18 @@ namespace ConstructorGenerator
      internal class GenerateBaseConstructorCallAttribute : Attribute
      {
      
+     }
+     
+     internal class GeneratedConstructorSettings
+     {
+          public ConstructorAccessibility Accessibility { get; set; } = ConstructorAccessibility.Public;
+     }
+     
+     internal enum ConstructorAccessibility
+     {
+           Private,
+           Protected,
+           Internal,
+           Public
      }
 }

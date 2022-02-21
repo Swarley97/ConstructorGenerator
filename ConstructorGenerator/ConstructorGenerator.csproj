@@ -9,7 +9,7 @@
         <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
         <PackageTags>generator; c#; constructor</PackageTags>
         <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
-        <Version>$(VersionPrefix)0.1.0</Version>
+        <Version>$(VersionPrefix)0.1.1</Version>
         <PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	</PropertyGroup>
@@ -23,5 +23,16 @@
         <None Remove="Attributes.txt" />
         <EmbeddedResource Include="Generation\GenerateConstructorTemplate.txt" />
         <EmbeddedResource Include="Attributes.txt" />
+    </ItemGroup>
+
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\README.md">
+        <Pack>True</Pack>
+        <PackagePath>\</PackagePath>
+      </None>
     </ItemGroup>
 </Project>
