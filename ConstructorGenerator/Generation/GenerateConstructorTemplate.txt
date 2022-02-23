@@ -3,7 +3,7 @@
 	$Access_Modifier$ partial class $Class_Name$ $Type_Arguments$
 	{
 		$Constructor_Access_Modifier$ $Class_Name$ ($Parameter_List$)
-			$Base_Parameter_List$
+			: base($Base_Parameter_List$)
 		{
 			$Assignment_List$
 		}

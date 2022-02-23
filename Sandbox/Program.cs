@@ -1,20 +1,6 @@
-﻿
-using ConstructorGenerator;
-namespace Sandbox;
+﻿// See https://aka.ms/new-console-template for more information
 
-internal abstract partial class TestClass<T1, T2, T3, T4>
-{
-    [ConstructorDependency]
-    private readonly Semaphore _sem;
+using Sandbox;
 
+Console.WriteLine("Hello, World!");
 
-    
-}
-
-public static class Program
-{
-    public static void Main(string[] args)
-    {
-        
-    }
-}

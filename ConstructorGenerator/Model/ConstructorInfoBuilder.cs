@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,24 +10,12 @@ namespace ConstructorGenerator.Model;
 
 internal class ConstructorInfoBuilder
 {
-    private readonly IReadOnlyCollection<ClassDeclarationSyntax> _classesToInspect;
-    private readonly Compilation _compilation;
-
-    private readonly List<INamedTypeSymbol> _typesToInspect = new();
+    private List<INamedTypeSymbol> _typesToInspect = new();
     private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos = new();
 
-    public ConstructorInfoBuilder(IReadOnlyCollection<ClassDeclarationSyntax> classesToInspect,
-                                  Compilation compilation)
+    public ICollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
     {
-        _classesToInspect = classesToInspect;
-        _compilation = compilation;
-    }
-
-    public ICollection<ConstructorInfo> Build()
-    {
-        _typesToInspect.AddRange(_classesToInspect.Select(x => _compilation.GetSemanticModel(x.SyntaxTree)
-                                                                           .GetDeclaredSymbol(x) as INamedTypeSymbol)
-                                                  .Where(x => x != null)!);
+        _typesToInspect = classesToInspect.ToList();   
         return _typesToInspect.Select(Build).ToList();
     }
 
@@ -40,10 +30,13 @@ internal class ConstructorInfoBuilder
             return new ConstructorInfo(namedTypeSymbol, Array.Empty<ParameterInfo>(), baseParameters);
         }
 
+        
         List<ParameterInfo> parameterInfos = new();
         foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers().Where(x => x.GetAttributes()
                      .Any(y => y.AttributeClass?.Name.StartsWith("ConstructorDependency") is true)))
         {
+            var attributeData = memberSymbol.GetAttributes().First();
+
             switch (memberSymbol)
             {
                 case IFieldSymbol { Type: INamedTypeSymbol fieldType }:
