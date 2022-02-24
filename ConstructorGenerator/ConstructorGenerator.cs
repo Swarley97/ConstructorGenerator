@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using ConstructorGenerator.Generation;
+﻿using ConstructorGenerator.Generation;
 using ConstructorGenerator.Model;
 using Microsoft.CodeAnalysis;
 using System.Linq;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Diagnostics;
 using System.Collections.Immutable;
+using ConstructorGenerator.Attributes;
 
 namespace ConstructorGenerator
 {
@@ -14,11 +14,9 @@ namespace ConstructorGenerator
 	{
 		public void Initialize(IncrementalGeneratorInitializationContext context)
 		{
-			Debugger.Launch();
-
 			IncrementalValuesProvider<INamedTypeSymbol?> interestingClasses =
 				context.SyntaxProvider.CreateSyntaxProvider((node, _) => IsInterestingClass(node),
-															(context, _) => GetNamedTypeSymbol(context));
+															(syntaxContext, _) => GetNamedTypeSymbol(syntaxContext));
 
 			IncrementalValuesProvider<ConstructorInfo> constructorInfos = interestingClasses
 				.Collect().SelectMany((classes, _) =>
@@ -32,42 +30,36 @@ namespace ConstructorGenerator
 			IncrementalValuesProvider<(ConstructorInfo, GenerationResult)> generationResult = 
 				constructorInfos.Select((x, _) => (x, new GenerateConstructorTask().Generate(x)));
 
-			context.RegisterSourceOutput(generationResult, (context, source) =>
+			context.RegisterSourceOutput(generationResult, (sourceProductionContext, source) =>
 			{
-				context.AddSource($"{source.Item1.Type.Name}_ConstructorGenerator.g.cs", source.Item2.Code);
+				sourceProductionContext.AddSource($"{source.Item1.Type.Name}_ConstructorGenerator.g.cs", source.Item2.Code);
 			});
 		}
 
-		private bool IsInterestingClass(SyntaxNode? syntaxNode)
+		private static bool IsInterestingClass(SyntaxNode? syntaxNode)
 		{
-			if (syntaxNode is ClassDeclarationSyntax classDeclaration)
+			return syntaxNode switch
 			{
-				if (classDeclaration.AttributeLists.SelectMany(x => x.Attributes)
-					.All(x => x.Name.ToString() != "GenerateBaseConstructorCall"))
-					return false;
-
-				return true;
-			}
-			else if (syntaxNode is MemberDeclarationSyntax memberDelcaration)
-			{
-				if (memberDelcaration.AttributeLists.SelectMany(x => x.Attributes)
-					.All(x => x.Name.ToString() != "ConstructorDependency"))
-					return false;
-
-				if (memberDelcaration.Parent is ClassDeclarationSyntax parentClassDeclaration)
-					return true;
-			}
-			return false;
+				ClassDeclarationSyntax classDeclaration 
+					when WellKnownAttributes.GenerateBaseConstructorCallAttribute
+						.IsDefined(classDeclaration.AttributeLists) => true,
+				_ => syntaxNode is MemberDeclarationSyntax
+				     {
+					     Parent: TypeDeclarationSyntax
+				     } memberDeclarationSyntax &&
+				     WellKnownAttributes.ConstructorDependencyAttribute.IsDefined(
+					     memberDeclarationSyntax.AttributeLists)
+			};
 		}
 
 		private INamedTypeSymbol? GetNamedTypeSymbol(GeneratorSyntaxContext syntaxContext)
 		{
-			ClassDeclarationSyntax? classDeclaration = syntaxContext.Node.FirstAncestorOrSelf<ClassDeclarationSyntax>();
-			if (classDeclaration == null)
+			TypeDeclarationSyntax? typeDeclarationSyntax = syntaxContext.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
+			if (typeDeclarationSyntax == null)
 			{
 				return null;
 			}
-			return syntaxContext.SemanticModel.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
+			return syntaxContext.SemanticModel.GetDeclaredSymbol(typeDeclarationSyntax) as INamedTypeSymbol;
 		}
 	}
 }

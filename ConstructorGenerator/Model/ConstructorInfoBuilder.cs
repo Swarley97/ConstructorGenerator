@@ -1,54 +1,95 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Linq;
+using ConstructorGenerator.Attributes;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ConstructorGenerator.Model;
 
 internal class ConstructorInfoBuilder
 {
     private List<INamedTypeSymbol> _typesToInspect = new();
-    private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos = new();
+
+    private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos =
+        new(SymbolEqualityComparer.Default);
 
     public ICollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
     {
-        _typesToInspect = classesToInspect.ToList();   
+        _typesToInspect = classesToInspect.ToList();
         return _typesToInspect.Select(Build).ToList();
+    }
+
+    private Accessibility GetAccessibility(INamedTypeSymbol namedTypeSymbol)
+    {
+        AttributeData? attributeData =
+            WellKnownAttributes.GeneratedConstructorSettingsAttribute.GetAttributeData(namedTypeSymbol);
+        if (attributeData == null)
+            return Accessibility.Public;
+
+        TypedConstant accessibilityTypeConstant = attributeData.NamedArguments.FirstOrDefault(x =>
+            x.Key == nameof(GeneratedConstructorSettingsAttribute.ConstructorAccessibility)).Value;
+
+        if (accessibilityTypeConstant.IsNull)
+            return Accessibility.Public;
+
+        ConstructorAccessibility constructorAccessibility = default;
+        if (accessibilityTypeConstant.Value is int intValue &&
+            Enum.IsDefined(typeof(ConstructorAccessibility), intValue))
+        {
+            constructorAccessibility = (ConstructorAccessibility)intValue;
+        }
+
+        return constructorAccessibility switch
+        {
+            ConstructorAccessibility.Default => Accessibility.Public,
+            ConstructorAccessibility.SameAsClass => namedTypeSymbol.DeclaredAccessibility,
+            ConstructorAccessibility.Private => Accessibility.Private,
+            ConstructorAccessibility.Protected => Accessibility.Protected,
+            ConstructorAccessibility.Internal => Accessibility.Internal,
+            ConstructorAccessibility.Public => Accessibility.Public,
+            _ => Accessibility.Public
+        };
     }
 
     private ConstructorInfo Build(INamedTypeSymbol namedTypeSymbol)
     {
         IReadOnlyCollection<ParameterInfo> baseParameters = GetBaseParametersIfAny(namedTypeSymbol);
-
-        if (namedTypeSymbol.GetAttributes()
-            .Any(x => x.AttributeClass?.Name.StartsWith("GenerateConstructorBaseCall") is true &&
-                      baseParameters.Count > 0))
+        if (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol) &&
+            baseParameters.Count > 0)
         {
-            return new ConstructorInfo(namedTypeSymbol, Array.Empty<ParameterInfo>(), baseParameters);
+            return new ConstructorInfo(namedTypeSymbol,
+                GetAccessibility(namedTypeSymbol),
+                Array.Empty<ParameterInfo>(), baseParameters);
         }
 
-        
         List<ParameterInfo> parameterInfos = new();
-        foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers().Where(x => x.GetAttributes()
-                     .Any(y => y.AttributeClass?.Name.StartsWith("ConstructorDependency") is true)))
+        foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers())
         {
-            var attributeData = memberSymbol.GetAttributes().First();
+            AttributeData? attributeData = 
+                WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
+            if (attributeData == null)
+                continue;
 
-            switch (memberSymbol)
+            TypedConstant isOptionalValue = attributeData.NamedArguments
+                .FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
+            bool isOptional = (bool)(isOptionalValue.Value ?? false);
+
+            ParameterInfo? info = memberSymbol switch
             {
-                case IFieldSymbol { Type: INamedTypeSymbol fieldType }:
-                    parameterInfos.Add(new ParameterInfo(fieldType, null, memberSymbol.Name));
-                    break;
-                case IPropertySymbol { Type: INamedTypeSymbol propertyType }:
-                    parameterInfos.Add(new ParameterInfo(propertyType, null, memberSymbol.Name));
-                    break;
-            }
+                IFieldSymbol { Type: INamedTypeSymbol fieldType } =>
+                    new ParameterInfo(fieldType, null, memberSymbol.Name, isOptional),
+                IPropertySymbol { Type: INamedTypeSymbol propertyType } =>
+                    new ParameterInfo(propertyType, null, memberSymbol.Name, isOptional),
+                _ => null
+            };
+
+            if (info == null)
+                continue;
+            
+            parameterInfos.Add(info);
         }
 
-        return new ConstructorInfo(namedTypeSymbol, parameterInfos, baseParameters);
+        return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
     }
 
     private IReadOnlyCollection<ParameterInfo> GetBaseParametersIfAny(INamedTypeSymbol namedTypeSymbol)
@@ -86,7 +127,8 @@ internal class ConstructorInfoBuilder
             if (parameter.Type is not INamedTypeSymbol namedType)
                 continue;
 
-            parameterInfos.Add(new ParameterInfo(namedType, parameter.Name, null));
+            parameterInfos.Add(new ParameterInfo(namedType, 
+                parameter.Name, null, parameter.IsOptional));
         }
 
         return parameterInfos;

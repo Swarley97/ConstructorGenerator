@@ -2,19 +2,33 @@ using ConstructorGenerator.Attributes;
 
 namespace Sandbox;
 
-public partial class ClassWithDependency : Base
+[GeneratedConstructorSettings(ConstructorAccessibility = ConstructorAccessibility.SameAsClass)]
+internal abstract partial class ClassWithDependency : Base
 {
-    [ConstructorDependency(true)]
+    [ConstructorDependency]
     private string _dependencyOne;
 
+    [ConstructorDependency]
+    private int DependencyTwo { get; }
+}
+
+
+internal partial struct Triangle
+{
     [ConstructorDependency(IsOptional = true)]
-    private int _dependenyTwo;
+    private double A;
+}
+
+internal partial record DataClass
+{
+    [ConstructorDependency]
+    public string A;
 }
 
 public class Base
 {
-    //public Base(decimal d)
-    //{
+    public Base(decimal d)
+    {
         
-    //}
+    }
 }

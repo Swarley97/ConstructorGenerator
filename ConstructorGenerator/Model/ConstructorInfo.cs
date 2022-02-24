@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 namespace ConstructorGenerator.Model;
 
 internal record ConstructorInfo(INamedTypeSymbol Type, 
+								Accessibility ConstructorAccessibility,
 								IReadOnlyCollection<ParameterInfo> Parameters,
 								IReadOnlyCollection<ParameterInfo> BaseParameters)
 {

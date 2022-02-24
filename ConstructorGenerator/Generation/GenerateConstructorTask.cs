@@ -28,15 +28,28 @@ internal class GenerateConstructorTask
 		string typeArgs = constructorInfo.Type.IsGenericType
 							? string.Join(", ", constructorInfo.Type.TypeParameters.Select(x => x.Name))
 							: string.Empty;
-
+		string typeKeyword;
+		if (constructorInfo.Type.TypeKind == TypeKind.Struct)
+			typeKeyword = "struct";
+		else if (constructorInfo.Type.IsRecord)
+			typeKeyword = "record";
+		else
+			typeKeyword = "class";
+		
 		return template.Replace("$Namespace$", namespaceFullName)
 					   .Replace("$Class_Name$", className)
 					   .Replace("$Type_Arguments$", typeArgs)
-					   .Replace("$Access_Modifier$", accessModifier);
+					   .Replace("$Access_Modifier$", accessModifier)
+					   .Replace("$Constructor_Access_Modifier$", 
+						   constructorInfo.ConstructorAccessibility.ToString().ToLower())
+					   .Replace("$Type_Keyword$", typeKeyword);
 	}
+	
 	private string ReplaceParameterFields(string template, GenerateParameterList parameterList)
 	{
-		string parameterListText = string.Join(", ", parameterList.AllParameters.Select(x => $"{x.Type} {x.Name}"));
+		string parameterListText = string.Join(", ", parameterList.AllParameters
+			.OrderBy(x => x.IsOptional ? int.MaxValue : 0)
+			.Select(x => $"{x.Type} {x.Name}{(x.IsOptional ? " = default" : string.Empty)}"));
 		template = template.Replace("$Parameter_List$", parameterListText);
 
 		int indexOfAssignmentList = template.IndexOf("$Assignment_List$", StringComparison.OrdinalIgnoreCase) - 1;
@@ -63,8 +76,16 @@ internal class GenerateConstructorTask
 			firstProcessed = true;
 		}
 		template = template.Replace("$Assignment_List$", builder.ToString());
-		template = template.Replace("$Base_Parameter_List$", 
-			string.Join(", ", parameterList.BaseParameters.Select(x => x.Name)));
+
+		if (parameterList.BaseParameters.Count > 0)
+		{
+			string baseParameterList = string.Join(", ", parameterList.BaseParameters.Select(x => x.Name));
+			template = template.Replace("$Base_Parameter_List$", baseParameterList);
+		}
+		else
+		{
+			template = template.Replace(": base($Base_Parameter_List$)", string.Empty);
+		}
 		
 		return template;
 	}
@@ -79,7 +100,7 @@ internal class GenerateConstructorTask
 			string fullParameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 			string parameterName = $"para{index}";
 
-			return new GenerateParameter(fullParameterType, parameterName, parameter);
+			return new GenerateParameter(fullParameterType, parameterName, parameter.IsOptional, parameter);
 		}
 
 		int index = 0;
@@ -103,5 +124,5 @@ internal class GenerateConstructorTask
 										 IReadOnlyList<GenerateParameter> BaseParameters,
 										 IReadOnlyList<GenerateParameter> Parameters);
 
-	private record GenerateParameter(string Type, string Name, ParameterInfo Origin);
+	private record GenerateParameter(string Type, string Name, bool IsOptional, ParameterInfo Origin);
 }
