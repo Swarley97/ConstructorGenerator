@@ -9,10 +9,12 @@
         <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
         <PackageTags>generator; c#; constructor</PackageTags>
         <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
-        <Version>$(VersionPrefix)0.3.2</Version>
+        <Version>$(VersionPrefix)0.3.3</Version>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
-	</PropertyGroup>
+        <developmentDependency>true</developmentDependency>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
 
     <ItemGroup>
         <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
@@ -21,7 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference GeneratePathProperty="true" Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" PrivateAssets="all" />
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" PrivateAssets="all" />
     </ItemGroup>
 
