@@ -1,48 +1,50 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>10</LangVersion>
-        <Nullable>enable</Nullable>
-        <Authors>Tim Nootny</Authors>
-        <Description>Generates constructors for you.</Description>
-        <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
-        <PackageTags>generator; c#; constructor</PackageTags>
-        <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
-        <Version>$(VersionPrefix)0.3.3</Version>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<IncludeBuildOutput>false</IncludeBuildOutput>
-        <developmentDependency>true</developmentDependency>
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <Authors>Tim Nootny</Authors>
+    <Description>Generates constructors for you.</Description>
+    <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
+    <PackageTags>generator; c#; constructor</PackageTags>
+    <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
+    <Version>$(VersionPrefix)0.3.3</Version>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <developmentDependency>true</developmentDependency>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <IsRoslynComponent>true</IsRoslynComponent>
+  </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
+    <None Include="$(SolutionDir)README.md" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" PrivateAssets="all" />
+    <PackageReference Include="Scriban" Version="5.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Attributes.txt" />
+    <EmbeddedResource Include="Generation\GenerateConstructorTemplate.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ConstructorGenerator.Attributes\ConstructorGenerator.Attributes.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
+  </PropertyGroup>
+
+  <Target Name="GetDependencyTargetPaths">
     <ItemGroup>
-        <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-        <None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
-		<None Include="$(SolutionDir)README.md" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)ConstructorGenerator.Attributes.dll" IncludeRuntimeDependency="false" />
     </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" PrivateAssets="all" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Remove="Attributes.txt" />
-        <EmbeddedResource Include="Generation\GenerateConstructorTemplate.txt" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\ConstructorGenerator.Attributes\ConstructorGenerator.Attributes.csproj" />
-    </ItemGroup>
-    
-    <PropertyGroup>
-        <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
-    </PropertyGroup>    
-
-    <Target Name="GetDependencyTargetPaths">
-        <ItemGroup>
-            <TargetPathWithTargetPlatformMoniker Include="$(TargetDir)ConstructorGenerator.Attributes.dll" IncludeRuntimeDependency="false" />
-        </ItemGroup>
-    </Target>
+  </Target>
 </Project>

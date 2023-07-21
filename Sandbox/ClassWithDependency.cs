@@ -32,3 +32,15 @@ public class Base
         
     }
 }
+
+[GenerateFullConstructor]
+internal partial class Test
+{
+    private List<int> _numbers = new List<int>();
+
+    private List<string> Names { get; } = new List<string>();
+
+    private int _notInitNumber;
+
+    private string _notInitName { get; set; }
+}

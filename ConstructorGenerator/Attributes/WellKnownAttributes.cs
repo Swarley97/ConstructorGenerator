@@ -10,4 +10,10 @@ public static class WellKnownAttributes
 
     public static AttributeDefinition GeneratedConstructorSettingsAttribute { get; }
         = new AttributeDefinition("GeneratedConstructorSettingsAttribute");
+
+    public static AttributeDefinition GenerateFullConstructorAttribute { get; }
+        = new AttributeDefinition("GenerateFullConstructorAttribute");
+
+    public static AttributeDefinition ExcludeConstructorDependencyAttribute { get; }
+        = new AttributeDefinition("ExcludeConstructorDependencyAttribute");
 }

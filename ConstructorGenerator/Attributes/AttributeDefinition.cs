@@ -9,7 +9,7 @@ public sealed class AttributeDefinition : IEquatable<AttributeDefinition>
 {
     private readonly string _attributeFullName;
     private readonly string _attributeName;
-    
+
     public AttributeDefinition(string attributeFullName)
     {
         _attributeFullName = attributeFullName;
@@ -45,6 +45,11 @@ public sealed class AttributeDefinition : IEquatable<AttributeDefinition>
         return namedTypeSymbol.GetAttributes().Any(x => IsDefined(x.AttributeClass?.Name));
     }
 
+    public bool IsDefined(ISymbol namedTypeSymbol)
+    {
+        return namedTypeSymbol.GetAttributes().Any(x => IsDefined(x.AttributeClass?.Name));
+    }
+
     public AttributeData? GetAttributeData(ISymbol namedTypeSymbol)
     {
         return namedTypeSymbol.GetAttributes().FirstOrDefault(x => IsDefined(x.AttributeClass?.Name));
@@ -54,7 +59,7 @@ public sealed class AttributeDefinition : IEquatable<AttributeDefinition>
     {
         if (ReferenceEquals(null, other)) return false;
         if (ReferenceEquals(this, other)) return true;
-        
+
         return string.Equals(_attributeFullName, other._attributeFullName, StringComparison.OrdinalIgnoreCase) &&
                string.Equals(_attributeName, other._attributeName, StringComparison.OrdinalIgnoreCase);
     }
