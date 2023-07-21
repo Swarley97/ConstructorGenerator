@@ -1,11 +1,13 @@
-﻿namespace $Namespace$
+﻿namespace {{ Namespace }}
 {
-	$Access_Modifier$ partial $Type_Keyword$ $Class_Name$ $Type_Arguments$
+	{{ ClassAccessModifier }} partial {{ ClassType }} {{ ClassName }} {{ TypeArguments }}
 	{
-		$Constructor_Access_Modifier$ $Class_Name$ ($Parameter_List$)
-			: base($Base_Parameter_List$)
-		{
-			$Assignment_List$
+		{{ ConstructorAccessModifier }} {{ ClassName }}({{ ParameterList }}) {{ if HasBaseParameters }} 
+		    : base({{ BaseParameterList }}) {{ end }}
+		{ {{ if !string.empty AssignmentList}}
+			{{ AssignmentList }} {{ end }}
+			OnConstructing();
 		}
+		partial void OnConstructing();
 	}
 }

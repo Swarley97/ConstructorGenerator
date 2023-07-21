@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ConstructorGenerator.Attributes;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ConstructorGenerator.Model;
 
@@ -57,39 +58,61 @@ internal class ConstructorInfoBuilder
         if (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol) &&
             baseParameters.Count > 0)
         {
-            return new ConstructorInfo(namedTypeSymbol,
-                GetAccessibility(namedTypeSymbol),
-                Array.Empty<ParameterInfo>(), baseParameters);
+            return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), Array.Empty<ParameterInfo>(), baseParameters);
         }
 
         List<ParameterInfo> parameterInfos = new();
+        AttributeData? generateFullConstructorAttributeData = WellKnownAttributes.GenerateFullConstructorAttribute.GetAttributeData(namedTypeSymbol);
+
         foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers())
         {
-            AttributeData? attributeData = 
-                WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
-            if (attributeData == null)
-                continue;
-
-            TypedConstant isOptionalValue = attributeData.NamedArguments
-                .FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
-            bool isOptional = (bool)(isOptionalValue.Value ?? false);
-
-            ParameterInfo? info = memberSymbol switch
+            ParameterInfo? parameterInfo = GetParameterInfo(generateFullConstructorAttributeData, memberSymbol);
+            if (parameterInfo != null)
             {
-                IFieldSymbol { Type: INamedTypeSymbol fieldType } =>
-                    new ParameterInfo(fieldType, null, memberSymbol.Name, isOptional),
-                IPropertySymbol { Type: INamedTypeSymbol propertyType } =>
-                    new ParameterInfo(propertyType, null, memberSymbol.Name, isOptional),
-                _ => null
-            };
-
-            if (info == null)
-                continue;
-            
-            parameterInfos.Add(info);
+                parameterInfos.Add(parameterInfo);
+            }
         }
 
         return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
+    }
+
+    private ParameterInfo? GetParameterInfo(AttributeData? generateFullConstructorAttributeData, ISymbol memberSymbol)
+    {
+        if (WellKnownAttributes.ExcludeConstructorDependencyAttribute.IsDefined(memberSymbol)) return null;
+
+        AttributeData? attributeData = WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
+        bool isOptional = false;
+
+        if ((generateFullConstructorAttributeData == null && attributeData == null) || memberSymbol.IsImplicitlyDeclared) return null;
+
+        if (attributeData != null)
+        {
+            TypedConstant isOptionalValue = attributeData.NamedArguments.FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
+            isOptional = (bool)(isOptionalValue.Value ?? false);
+        }
+
+        bool isInitialized = IsInitialized(memberSymbol);
+        return memberSymbol switch
+        {
+            IFieldSymbol { Type: INamedTypeSymbol fieldType } => new ParameterInfo(fieldType, null, memberSymbol.Name, isOptional, isInitialized),
+            IPropertySymbol { Type: INamedTypeSymbol propertyType } => new ParameterInfo(propertyType, null, memberSymbol.Name, isOptional, isInitialized),
+            _ => null
+        };
+    }
+
+    private bool IsInitialized(ISymbol param)
+    {
+        foreach (SyntaxReference syntaxReference in param.DeclaringSyntaxReferences)
+        {
+            SyntaxNode syntaxNode = syntaxReference.GetSyntax();
+            return syntaxNode switch
+            {
+                VariableDeclaratorSyntax variableDeclaration => variableDeclaration.Initializer != null,
+                PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.Initializer != null,
+                _ => false
+            };
+        }
+        return false;
     }
 
     private IReadOnlyCollection<ParameterInfo> GetBaseParametersIfAny(INamedTypeSymbol namedTypeSymbol)
@@ -127,8 +150,7 @@ internal class ConstructorInfoBuilder
             if (parameter.Type is not INamedTypeSymbol namedType)
                 continue;
 
-            parameterInfos.Add(new ParameterInfo(namedType, 
-                parameter.Name, null, parameter.IsOptional));
+            parameterInfos.Add(new ParameterInfo(namedType, parameter.Name, null, parameter.IsOptional, IsInitialized(parameter)));
         }
 
         return parameterInfos;
