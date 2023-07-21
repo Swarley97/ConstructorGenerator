@@ -1,3 +1,4 @@
+using System;
 using Microsoft.CodeAnalysis;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ internal class GenerateConstructorTask
     internal GenerationResult Generate(ConstructorInfo constructorInfo)
     {
         Template template = Template.Parse(CodeTemplates.ConstructorTemplate);
-        var parameterList = CreateParameterList(constructorInfo);
+        GenerateParameterList parameterList = CreateParameterList(constructorInfo);
 
         Dictionary<string, object> scribanDataModel = new Dictionary<string, object>();
         GetNonParameterFields(scribanDataModel, constructorInfo);
@@ -78,7 +79,7 @@ internal class GenerateConstructorTask
             string? parameterName = parameter.AssignmentTargetMemberName ?? parameter.Name;
             if (parameterName != null)
             {
-                if (parameterName.StartsWith("_"))
+                if (parameterName.StartsWith("_", StringComparison.Ordinal))
                 {
                     parameterName = parameterName.Substring(1);
                 }
@@ -92,13 +93,13 @@ internal class GenerateConstructorTask
         }
 
         int index = 0;
-        foreach (var parameter in info.Parameters)
+        foreach (ParameterInfo? parameter in info.Parameters)
         {
             parameters.Add(Create(parameter, index));
             index++;
         }
 
-        foreach (var parameter in info.BaseParameters)
+        foreach (ParameterInfo? parameter in info.BaseParameters)
         {
             baseParameter.Add(Create(parameter, index));
             index++;
