@@ -14,11 +14,11 @@ public sealed class AttributeDefinition : IEquatable<AttributeDefinition>
     {
         _attributeFullName = attributeFullName;
 
-        const string attributeWord = "Attribute";
-        if (_attributeFullName.EndsWith(attributeWord))
+        const string ATTRIBUTE_WORD = "Attribute";
+        if (_attributeFullName.EndsWith(ATTRIBUTE_WORD, StringComparison.Ordinal))
         {
-            _attributeName = _attributeFullName.Remove(_attributeFullName.Length - attributeWord.Length,
-                attributeWord.Length);
+            _attributeName = _attributeFullName.Remove(_attributeFullName.Length - ATTRIBUTE_WORD.Length,
+                ATTRIBUTE_WORD.Length);
         }
         else
         {
