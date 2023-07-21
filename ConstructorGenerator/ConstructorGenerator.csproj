@@ -12,7 +12,6 @@
     <Version>0.5.2</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeBuildOutput>false</IncludeBuildOutput>
-    <DevelopmentDependency>true</DevelopmentDependency>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <IsRoslynComponent>true</IsRoslynComponent>
     <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'" >true</GeneratePackageOnBuild>
