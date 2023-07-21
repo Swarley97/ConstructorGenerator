@@ -9,7 +9,7 @@
     <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
     <PackageTags>generator; c#; constructor</PackageTags>
     <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
-    <Version>0.5.1</Version>
+    <Version>0.5.2</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <DevelopmentDependency>true</DevelopmentDependency>
@@ -28,9 +28,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ConstructorGenerator.Attributes\ConstructorGenerator.Attributes.csproj"
+    PrivateAssets="all"/>
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.1.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.3" PrivateAssets="all" />
     <PackageReference Include="Scriban" Version="5.7.0" GeneratePathProperty="true" PrivateAssets="all"/>
+
+<!--    do not pack the project reference because otherwise it will be added as dependency to the resulting nuget-->
+<!--    since we do not create a nuget for this projekt this is required.-->
+    <PackageReference Update="ConstructorGenerator.Attributes" Pack="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,9 +47,7 @@
     <EmbeddedResource Include="Generation\GenerateConstructorTemplate.txt" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\ConstructorGenerator.Attributes\ConstructorGenerator.Attributes.csproj" />
-  </ItemGroup>
+
 
   <PropertyGroup>
     <GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
