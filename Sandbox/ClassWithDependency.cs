@@ -34,13 +34,18 @@ public class Base
 }
 
 [GenerateFullConstructor]
-internal partial class Test
+internal partial class Test : Base
 {
     private List<int> _numbers = new List<int>();
 
     private List<string> Names { get; } = new List<string>();
 
-    private int _notInitNumber;
+    private readonly int _notInitNumber;
 
-    private string _notInitName { get; set; }
+    public string NotInitNameWithSetter { get; set; }
+    [ConstructorDependency] public string NotInitNameWithSetterButExplicit { get; set; }
+    public string NotInitNameWithInit { get; init; }
+    public string NotInitNameReadOnly { get; }
+
+    public string ComputedProperty => string.Empty;
 }

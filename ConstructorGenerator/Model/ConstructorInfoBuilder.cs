@@ -78,18 +78,24 @@ internal class ConstructorInfoBuilder
 
     private ParameterInfo? GetParameterInfo(AttributeData? generateFullConstructorAttributeData, ISymbol memberSymbol)
     {
-        if (WellKnownAttributes.ExcludeConstructorDependencyAttribute.IsDefined(memberSymbol)) return null;
+        if (WellKnownAttributes.ExcludeConstructorDependencyAttribute.IsDefined(memberSymbol)) 
+            return null;
 
         AttributeData? attributeData = WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
-        bool isOptional = false;
 
-        if ((generateFullConstructorAttributeData == null && attributeData == null) || memberSymbol.IsImplicitlyDeclared) return null;
+        if ((generateFullConstructorAttributeData == null && attributeData == null) || memberSymbol.IsImplicitlyDeclared) 
+            return null;
 
-        if (attributeData != null)
-        {
-            TypedConstant isOptionalValue = attributeData.NamedArguments.FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
-            isOptional = (bool)(isOptionalValue.Value ?? false);
-        }
+        bool isOptional = ExtractIsOptional(attributeData);
+
+        if (IsPropertyButNotAuto(memberSymbol))
+            return null;
+
+        if (ExtractIsFieldButNotReadOnly(memberSymbol, attributeData))
+            return null;
+
+        if (ExtractIsPropertyButNotReadOnlyOrInitOnly(memberSymbol, attributeData))
+            return null;
 
         bool isInitialized = IsInitialized(memberSymbol);
         return memberSymbol switch
@@ -98,6 +104,56 @@ internal class ConstructorInfoBuilder
             IPropertySymbol { Type: INamedTypeSymbol propertyType } => new ParameterInfo(propertyType, null, memberSymbol.Name, isOptional, isInitialized),
             _ => null
         };
+    }
+
+    private static bool IsPropertyButNotAuto(ISymbol memberSymbol)
+    {
+        return memberSymbol is IPropertySymbol propertySymbol && !IsAutoProperty(propertySymbol);
+    }
+
+    private static bool IsAutoProperty(IPropertySymbol propertySymbol)
+    {
+        // Get fields declared in the same type as the property
+        IEnumerable<IFieldSymbol> fields = propertySymbol.ContainingType.GetMembers().OfType<IFieldSymbol>();
+
+        // Check if one field is associated to
+        return fields.Any(field => SymbolEqualityComparer.Default.Equals(field.AssociatedSymbol, propertySymbol));
+    }
+
+    private static bool ExtractIsPropertyButNotReadOnlyOrInitOnly(ISymbol memberSymbol, AttributeData? attributeData)
+    {
+        bool isPropertyButNotReadOnlyOrInitOnly = false;
+        if (memberSymbol is IPropertySymbol propertySymbol && attributeData == null)
+        { //Only collect readonly or init-only properties in automatic mode
+            bool setterIsInitOnly = propertySymbol.SetMethod?.IsInitOnly ?? false;
+            if (!(propertySymbol.IsReadOnly || setterIsInitOnly))
+                isPropertyButNotReadOnlyOrInitOnly = true;
+        }
+
+        return isPropertyButNotReadOnlyOrInitOnly;
+    }
+
+    private static bool ExtractIsFieldButNotReadOnly(ISymbol memberSymbol, AttributeData? attributeData)
+    {
+        bool isFieldButNotReadOnly = false;
+        if (memberSymbol is IFieldSymbol fieldSymbol && attributeData == null)
+        { //Only collect readonly fields in automatic mode
+            if (!fieldSymbol.IsReadOnly)
+                isFieldButNotReadOnly = true;
+        }
+
+        return isFieldButNotReadOnly;
+    }
+
+    private static bool ExtractIsOptional(AttributeData? attributeData)
+    {
+        bool isOptional = false;
+        if (attributeData == null)
+            return isOptional;
+        TypedConstant isOptionalValue = attributeData.NamedArguments.FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
+        isOptional = (bool)(isOptionalValue.Value ?? false);
+
+        return isOptional;
     }
 
     private bool IsInitialized(ISymbol param)
