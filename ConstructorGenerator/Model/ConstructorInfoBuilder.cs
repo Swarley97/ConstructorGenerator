@@ -16,8 +16,20 @@ internal class ConstructorInfoBuilder
 
     public ICollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
     {
-        _typesToInspect = classesToInspect.ToList();
+        _typesToInspect = classesToInspect.OrderBy(GetTypeHierarchyDepth).ToList();
         return _typesToInspect.Select(Build).ToList();
+    }
+    
+    private int GetTypeHierarchyDepth(INamedTypeSymbol namedTypeSymbol)
+    {
+        int depth = 0;
+        INamedTypeSymbol? currentType = namedTypeSymbol;
+        while (currentType != null)
+        {
+            depth++;
+            currentType = currentType.BaseType;
+        }
+        return depth;
     }
 
     private Accessibility GetAccessibility(INamedTypeSymbol namedTypeSymbol)
@@ -73,7 +85,10 @@ internal class ConstructorInfoBuilder
             }
         }
 
-        return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
+        ConstructorInfo constructorInfo = new(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
+        
+        _constructorInfos[namedTypeSymbol] = constructorInfo;
+        return constructorInfo;
     }
 
     private ParameterInfo? GetParameterInfo(AttributeData? generateFullConstructorAttributeData, ISymbol memberSymbol)
@@ -180,11 +195,11 @@ internal class ConstructorInfoBuilder
         if (_typesToInspect.Contains(baseType))
         {
             if (_constructorInfos.TryGetValue(baseType, out ConstructorInfo info))
-                return info.Parameters;
+                return info.AllParameters;
 
             info = Build(baseType);
             _constructorInfos[baseType] = info;
-            return info.Parameters;
+            return info.AllParameters;
         }
 
         return GetParameterInfos(baseType);
