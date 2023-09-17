@@ -9,7 +9,7 @@
     <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
     <PackageTags>generator; c#; constructor</PackageTags>
     <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
-    <Version>0.5.4</Version>
+    <Version>0.5.5</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

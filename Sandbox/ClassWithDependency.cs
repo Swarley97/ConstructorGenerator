@@ -49,3 +49,26 @@ internal partial class Test : Base
 
     public string ComputedProperty => string.Empty;
 }
+
+
+internal class VeryBaseClass
+{
+    private readonly string _baseDependency;
+
+    public VeryBaseClass(string baseDependency)
+    {
+        _baseDependency = baseDependency;
+    }
+}
+
+[GenerateFullConstructor]
+internal partial class IntermediateClass : VeryBaseClass
+{
+    private readonly int _ownDependency;
+}
+
+[GenerateFullConstructor]
+internal partial class FinalClass : IntermediateClass
+{
+    
+}
