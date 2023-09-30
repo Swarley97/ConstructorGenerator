@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{B200FBB8
 		.github\workflows\main.yml = .github\workflows\main.yml
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConstructorGenerator.Tests", "ConstructorGenerator.Tests\ConstructorGenerator.Tests.csproj", "{60A1E066-5481-4535-8AF5-92E5F402FE26}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,5 +30,9 @@ Global
 		{AE2D353A-CBB4-44D3-951C-3EA708D6C437}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AE2D353A-CBB4-44D3-951C-3EA708D6C437}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AE2D353A-CBB4-44D3-951C-3EA708D6C437}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60A1E066-5481-4535-8AF5-92E5F402FE26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60A1E066-5481-4535-8AF5-92E5F402FE26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60A1E066-5481-4535-8AF5-92E5F402FE26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60A1E066-5481-4535-8AF5-92E5F402FE26}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

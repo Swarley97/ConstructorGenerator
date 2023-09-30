@@ -27,16 +27,18 @@ internal partial record DataClass
 
 public class Base
 {
-    public Base(decimal d)
+    private readonly List<decimal> _blub = new();
+
+    public Base(decimal d, List<decimal> blub)
     {
-        
+        _blub = blub;
     }
 }
 
 [GenerateFullConstructor]
 internal partial class Test : Base
 {
-    private List<int> _numbers = new List<int>();
+    private readonly List<int> _numbers = new List<int>();
 
     private List<string> Names { get; } = new List<string>();
 
