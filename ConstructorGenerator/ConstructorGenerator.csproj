@@ -9,6 +9,7 @@
     <RepositoryUrl>https://github.com/Swarley97/ConstructorGenerator</RepositoryUrl>
     <PackageTags>generator; c#; constructor</PackageTags>
     <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
+    <IsDevelopmentDependency>true</IsDevelopmentDependency>
     <Version>0.5.5</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeBuildOutput>false</IncludeBuildOutput>
