@@ -15,7 +15,7 @@ internal class GenerateConstructorTask
         Template template = Template.Parse(CodeTemplates.ConstructorTemplate);
         GenerateParameterList parameterList = CreateParameterList(constructorInfo);
 
-        Dictionary<string, object> scribanDataModel = new Dictionary<string, object>();
+        Dictionary<string, object> scribanDataModel = new();
         GetNonParameterFields(scribanDataModel, constructorInfo);
         GetParameterFields(scribanDataModel, parameterList);
 
@@ -49,14 +49,13 @@ internal class GenerateConstructorTask
     private void GetParameterFields(Dictionary<string, object> scribanDataModel, GenerateParameterList parameterList)
     {
         string parameterListText = string.Join(", ", parameterList.AllParameters
-            .Where(x => !x.Origin.IsInitialized)
             .OrderBy(x => x.IsOptional ? int.MaxValue : 0)
             .Select(x => $"{x.Type} {x.Name}{(x.IsOptional ? " = default" : string.Empty)}"));
 
         StringBuilder assignmentListBuilder = new();
         foreach (GenerateParameter? parameter in parameterList.Parameters)
         {
-            if ((parameter.Origin.AssignmentTargetMemberName == null) || parameter.Origin.IsInitialized)
+            if (parameter.Origin.AssignmentTargetMemberName == null)
                 continue;
 
             assignmentListBuilder.AppendLine($"{parameter.Origin.AssignmentTargetMemberName} = {parameter.Name};");

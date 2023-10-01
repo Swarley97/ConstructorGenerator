@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ConstructorGenerator.Attributes;
+using ConstructorGenerator.Model.Helper;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ConstructorGenerator.Model;
 
@@ -14,12 +14,15 @@ internal class ConstructorInfoBuilder
     private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos =
         new(SymbolEqualityComparer.Default);
 
-    public ICollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
+    private readonly MemberValidator _memberValidator = new();
+
+    public IReadOnlyCollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
     {
         _typesToInspect = classesToInspect.OrderBy(GetTypeHierarchyDepth).ToList();
+
         return _typesToInspect.Select(Build).ToList();
     }
-    
+
     private int GetTypeHierarchyDepth(INamedTypeSymbol namedTypeSymbol)
     {
         int depth = 0;
@@ -70,94 +73,48 @@ internal class ConstructorInfoBuilder
         if (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol) &&
             baseParameters.Count > 0)
         {
-            return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), Array.Empty<ParameterInfo>(), baseParameters);
+            return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), Array.Empty<ParameterInfo>(),
+                baseParameters);
         }
 
         List<ParameterInfo> parameterInfos = new();
-        AttributeData? generateFullConstructorAttributeData = WellKnownAttributes.GenerateFullConstructorAttribute.GetAttributeData(namedTypeSymbol);
+        AttributeData? generateFullConstructorAttributeData =
+            WellKnownAttributes.GenerateFullConstructorAttribute.GetAttributeData(namedTypeSymbol);
 
         foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers())
         {
-            ParameterInfo? parameterInfo = GetParameterInfo(generateFullConstructorAttributeData, memberSymbol);
+            if (!_memberValidator.ShouldGenerateConstructorParameterForMember(memberSymbol,
+                    generateFullConstructorAttributeData != null))
+                continue;
+
+            ParameterInfo? parameterInfo = GetParameterInfo(memberSymbol);
             if (parameterInfo != null)
             {
                 parameterInfos.Add(parameterInfo);
             }
         }
 
-        ConstructorInfo constructorInfo = new(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
-        
+        ConstructorInfo constructorInfo =
+            new(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
+
         _constructorInfos[namedTypeSymbol] = constructorInfo;
         return constructorInfo;
     }
 
-    private ParameterInfo? GetParameterInfo(AttributeData? generateFullConstructorAttributeData, ISymbol memberSymbol)
+    private ParameterInfo? GetParameterInfo(ISymbol memberSymbol)
     {
-        if (WellKnownAttributes.ExcludeConstructorDependencyAttribute.IsDefined(memberSymbol)) 
-            return null;
+        AttributeData? constructorDependencyAttributeData =
+            WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
+        bool isOptional = ExtractIsOptional(constructorDependencyAttributeData);
 
-        AttributeData? attributeData = WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
-
-        if ((generateFullConstructorAttributeData == null && attributeData == null) || memberSymbol.IsImplicitlyDeclared) 
-            return null;
-
-        bool isOptional = ExtractIsOptional(attributeData);
-
-        if (IsPropertyButNotAuto(memberSymbol))
-            return null;
-
-        if (ExtractIsFieldButNotReadOnly(memberSymbol, attributeData))
-            return null;
-
-        if (ExtractIsPropertyButNotReadOnlyOrInitOnly(memberSymbol, attributeData))
-            return null;
-
-        bool isInitialized = IsInitialized(memberSymbol);
         return memberSymbol switch
         {
-            IFieldSymbol { Type: INamedTypeSymbol fieldType } => new ParameterInfo(fieldType, null, memberSymbol.Name, isOptional, isInitialized),
-            IPropertySymbol { Type: INamedTypeSymbol propertyType } => new ParameterInfo(propertyType, null, memberSymbol.Name, isOptional, isInitialized),
+            IFieldSymbol { Type: INamedTypeSymbol fieldType } => new ParameterInfo(fieldType, null, memberSymbol.Name,
+                isOptional),
+            IPropertySymbol { Type: INamedTypeSymbol propertyType } => new ParameterInfo(propertyType, null,
+                memberSymbol.Name, isOptional),
             _ => null
         };
-    }
-
-    private static bool IsPropertyButNotAuto(ISymbol memberSymbol)
-    {
-        return memberSymbol is IPropertySymbol propertySymbol && !IsAutoProperty(propertySymbol);
-    }
-
-    private static bool IsAutoProperty(IPropertySymbol propertySymbol)
-    {
-        // Get fields declared in the same type as the property
-        IEnumerable<IFieldSymbol> fields = propertySymbol.ContainingType.GetMembers().OfType<IFieldSymbol>();
-
-        // Check if one field is associated to
-        return fields.Any(field => SymbolEqualityComparer.Default.Equals(field.AssociatedSymbol, propertySymbol));
-    }
-
-    private static bool ExtractIsPropertyButNotReadOnlyOrInitOnly(ISymbol memberSymbol, AttributeData? attributeData)
-    {
-        bool isPropertyButNotReadOnlyOrInitOnly = false;
-        if (memberSymbol is IPropertySymbol propertySymbol && attributeData == null)
-        { //Only collect readonly or init-only properties in automatic mode
-            bool setterIsInitOnly = propertySymbol.SetMethod?.IsInitOnly ?? false;
-            if (!(propertySymbol.IsReadOnly || setterIsInitOnly))
-                isPropertyButNotReadOnlyOrInitOnly = true;
-        }
-
-        return isPropertyButNotReadOnlyOrInitOnly;
-    }
-
-    private static bool ExtractIsFieldButNotReadOnly(ISymbol memberSymbol, AttributeData? attributeData)
-    {
-        bool isFieldButNotReadOnly = false;
-        if (memberSymbol is IFieldSymbol fieldSymbol && attributeData == null)
-        { //Only collect readonly fields in automatic mode
-            if (!fieldSymbol.IsReadOnly)
-                isFieldButNotReadOnly = true;
-        }
-
-        return isFieldButNotReadOnly;
     }
 
     private static bool ExtractIsOptional(AttributeData? attributeData)
@@ -165,26 +122,13 @@ internal class ConstructorInfoBuilder
         bool isOptional = false;
         if (attributeData == null)
             return isOptional;
-        TypedConstant isOptionalValue = attributeData.NamedArguments.FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
+        TypedConstant isOptionalValue = attributeData.NamedArguments
+            .FirstOrDefault(x => x.Key == nameof(ConstructorDependencyAttribute.IsOptional)).Value;
         isOptional = (bool)(isOptionalValue.Value ?? false);
 
         return isOptional;
     }
 
-    private bool IsInitialized(ISymbol param)
-    {
-        foreach (SyntaxReference syntaxReference in param.DeclaringSyntaxReferences)
-        {
-            SyntaxNode syntaxNode = syntaxReference.GetSyntax();
-            return syntaxNode switch
-            {
-                VariableDeclaratorSyntax variableDeclaration => variableDeclaration.Initializer != null,
-                PropertyDeclarationSyntax propertyDeclaration => propertyDeclaration.Initializer != null,
-                _ => false
-            };
-        }
-        return false;
-    }
 
     private IReadOnlyCollection<ParameterInfo> GetBaseParametersIfAny(INamedTypeSymbol namedTypeSymbol)
     {
@@ -192,25 +136,23 @@ internal class ConstructorInfoBuilder
         if (baseType == null)
             return Array.Empty<ParameterInfo>();
 
-        if (_typesToInspect.Contains(baseType))
-        {
-            if (_constructorInfos.TryGetValue(baseType, out ConstructorInfo info))
-                return info.AllParameters;
+        if (!_typesToInspect.Contains(baseType))
+            return GetParameterInfos(baseType);
 
-            info = Build(baseType);
-            _constructorInfos[baseType] = info;
+        if (_constructorInfos.TryGetValue(baseType, out ConstructorInfo info))
             return info.AllParameters;
-        }
 
-        return GetParameterInfos(baseType);
+        info = Build(baseType);
+        _constructorInfos[baseType] = info;
+        return info.AllParameters;
     }
 
     private IReadOnlyCollection<ParameterInfo> GetParameterInfos(INamedTypeSymbol baseType)
     {
-        IMethodSymbol? baseConstructor = baseType.Constructors.FirstOrDefault();
-        if (baseConstructor == null)
-            return Array.Empty<ParameterInfo>();
-        return GetParameterInfos(baseConstructor);
+        IMethodSymbol? baseConstructor = baseType.Constructors.Where(x => !x.IsStatic)
+            .OrderByDescending(x => x.Parameters.Length).FirstOrDefault();
+        
+        return baseConstructor == null ? Array.Empty<ParameterInfo>() : GetParameterInfos(baseConstructor);
     }
 
     private IReadOnlyCollection<ParameterInfo> GetParameterInfos(IMethodSymbol baseConstructor)
@@ -221,7 +163,7 @@ internal class ConstructorInfoBuilder
             if (parameter.Type is not INamedTypeSymbol namedType)
                 continue;
 
-            parameterInfos.Add(new ParameterInfo(namedType, parameter.Name, null, parameter.IsOptional, IsInitialized(parameter)));
+            parameterInfos.Add(new ParameterInfo(namedType, parameter.Name, null, parameter.IsOptional));
         }
 
         return parameterInfos;
