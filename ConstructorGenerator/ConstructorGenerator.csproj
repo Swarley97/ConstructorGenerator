@@ -10,7 +10,8 @@
     <PackageTags>generator; c#; constructor</PackageTags>
     <PackageProjectUrl>https://github.com/Swarley97/ConstructorGenerator</PackageProjectUrl>
     <IsDevelopmentDependency>true</IsDevelopmentDependency>
-    <Version>0.5.5</Version>
+    <Version>0.5.6</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -20,6 +21,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="$(SolutionDir)README.md" Pack="true" PackagePath="\"/>
+    
     <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
     <None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="false" />
