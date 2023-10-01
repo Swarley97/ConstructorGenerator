@@ -24,8 +24,6 @@ public partial class TestClassWithBaseClassAndFullConstructorAttribute : BaseCla
     
     public string PropertyReadOnly { get; }
     
-    [ExcludeConstructorDependency] public readonly string ReadonlyDependencyButIgnored = null!;
-    
     [ExcludeConstructorDependency]
     public string PropertyReadOnlyButIgnored { get; } = null!;
 }

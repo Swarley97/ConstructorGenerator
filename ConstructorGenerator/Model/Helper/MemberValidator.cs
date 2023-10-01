@@ -48,8 +48,8 @@ public class MemberValidator
         if (!IsAutoProperty(propertySymbol))
             return false; // non-auto properties should be ignored because there is a backing field.
 
-        // property should be not read-only or init-only OR explicit ConstructorDependencyAttribute is present
-        return explicitConstructorDependencyAttributeData != null || !IsPropertyButNotReadOnlyOrInitOnly(propertySymbol);
+        // property should be get or init-only OR explicit ConstructorDependencyAttribute is present
+        return explicitConstructorDependencyAttributeData != null || IsReadOnlyOrInitOnlyProperty(propertySymbol);
     }
     
     private static bool IsAutoProperty(IPropertySymbol propertySymbol)
@@ -61,10 +61,10 @@ public class MemberValidator
         return fields.Any(field => SymbolEqualityComparer.Default.Equals(field.AssociatedSymbol, propertySymbol));
     }
     
-    private static bool IsPropertyButNotReadOnlyOrInitOnly(IPropertySymbol propertySymbol)
+    private static bool IsReadOnlyOrInitOnlyProperty(IPropertySymbol propertySymbol)
     {
         bool setterIsInitOnly = propertySymbol.SetMethod?.IsInitOnly ?? false;
-        return !propertySymbol.IsReadOnly && !setterIsInitOnly;
+        return propertySymbol.IsReadOnly || setterIsInitOnly;
     }
     
     private bool IsInitialized(ISymbol param)

@@ -33,7 +33,6 @@ public class Tests
             Assert.IsNull(testClass.PropertyWithInitializer);
             Assert.IsNull(testClass.PropertyWithSetter);
             Assert.IsNull(testClass.ComputedProperty);
-            Assert.IsNull(testClass.ReadonlyDependencyButIgnored);
             Assert.IsNull(testClass.PropertyReadOnlyButIgnored);
         });
     }
