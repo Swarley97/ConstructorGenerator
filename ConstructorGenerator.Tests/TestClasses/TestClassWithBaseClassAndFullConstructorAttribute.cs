@@ -1,4 +1,5 @@
 using ConstructorGenerator.Attributes;
+// ReSharper disable All //its a test class
 
 namespace ConstructorGenerator.Tests.TestClasses;
 
@@ -25,5 +26,5 @@ public partial class TestClassWithBaseClassAndFullConstructorAttribute : BaseCla
     public string PropertyReadOnly { get; }
     
     [ExcludeConstructorDependency]
-    public string PropertyReadOnlyButIgnored { get; } = null!;
+    public string? PropertyReadOnlyButIgnored { get; }
 }

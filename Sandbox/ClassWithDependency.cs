@@ -1,4 +1,5 @@
 using ConstructorGenerator.Attributes;
+// ReSharper disable All - Sandbox should not be included
 
 namespace Sandbox;
 
