@@ -15,7 +15,9 @@ public class Tests
                 "propertyWithSetterButAttribute",
                 "readonlyDependency",
                 "notInitNameReadOnly",
+                "duplicate",
                 "baseA",
+                "duplicate",
                 "baseB");
         
         Assert.Multiple(() =>
@@ -62,7 +64,7 @@ public class Tests
     [Test]
     public void When_Class_With_Base_And_GenerateBaseConstructorCallAttribute()
     {
-        TestClassWithBaseButNoDependencies testClass = new("baseA", "baseB");
+        TestClassWithBaseButNoDependencies testClass = new("baseA", "duplicate","baseB");
         Assert.Multiple(() =>
         {
             Assert.That(testClass.BaseAProperty, Is.EqualTo("baseA"));

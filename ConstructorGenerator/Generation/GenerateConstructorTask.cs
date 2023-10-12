@@ -104,13 +104,36 @@ internal class GenerateConstructorTask
             index++;
         }
 
-        return new GenerateParameterList(parameters.Concat(baseParameter).ToList(),
+        List<GenerateParameter> allParameters = parameters.Concat(baseParameter).ToList();
+        DeDuplicateNames(allParameters);
+        return new GenerateParameterList(allParameters,
                                          baseParameter, parameters);
+    }
+    
+    
+    private void DeDuplicateNames(IReadOnlyCollection<GenerateParameter> allParameters)
+    {
+        foreach (GenerateParameter parameter in allParameters)
+        {
+            string baseName = parameter.Name;
+            string workingName = baseName;
+            int counter = 1;
+            while (allParameters.Count(x => x.Name == workingName) >= 2)
+            {
+                workingName = $"{baseName}{counter}";
+                counter++;
+            }
+
+            parameter.Name = workingName;
+        }
     }
 
     private record GenerateParameterList(IReadOnlyList<GenerateParameter> AllParameters,
                                          IReadOnlyList<GenerateParameter> BaseParameters,
                                          IReadOnlyList<GenerateParameter> Parameters);
 
-    private record GenerateParameter(string Type, string Name, bool IsOptional, ParameterInfo Origin);
+    private record GenerateParameter(string Type, string Name, bool IsOptional, ParameterInfo Origin)
+    {
+        public string Name { get; set; } = Name;
+    }
 }

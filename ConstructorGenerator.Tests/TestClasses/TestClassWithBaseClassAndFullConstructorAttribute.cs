@@ -27,4 +27,9 @@ public partial class TestClassWithBaseClassAndFullConstructorAttribute : BaseCla
     
     [ExcludeConstructorDependency]
     public string? PropertyReadOnlyButIgnored { get; }
+    
+    
+    // ReSharper disable once NotAccessedField.Local
+    // ReSharper disable once InconsistentNaming
+    private readonly string BaseDuplicateNameField;
 }
