@@ -30,7 +30,7 @@ namespace ConstructorGenerator
 
             context.RegisterSourceOutput(generationResult, (sourceProductionContext, source) =>
             {
-                sourceProductionContext.AddSource($"{source.Item1.Type.Name}_ConstructorGenerator.g.cs", source.Item2.Code);
+                sourceProductionContext.AddSource($"{source.Item1.Type.ContainingNamespace}.{source.Item1.Type.Name}_ConstructorGenerator.g.cs", source.Item2.Code);
             });
         }
 
