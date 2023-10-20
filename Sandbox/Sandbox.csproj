@@ -15,4 +15,5 @@
       <ProjectReference Include="..\ConstructorGenerator\ConstructorGenerator.csproj" ReferenceOutputAssembly="False" OutputItemType="Analyzer" />
     </ItemGroup>
 
+
 </Project>
