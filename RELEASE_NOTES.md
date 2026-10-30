@@ -5,7 +5,7 @@ Version 2.0 is a quality release: the generator was rewritten as a proper increm
 ## Highlights
 
 - Rewritten generation pipeline. It no longer uses Scriban or a text template. Source is emitted directly, so the package ships without the Scriban dependency (1.0.2 pulled in Scriban 5.7.0, which has known vulnerability advisories).
-- New diagnostics `CG0001` and `CG0002`.
+- New diagnostics `CG0001`, `CG0002` and `CG0003`.
 - Support for structs, record classes, record structs, generic types, nested types and the global namespace.
 - Caching/incremental behavior is covered by tests: changing one member regenerates only the affected output.
 
@@ -14,13 +14,14 @@ Version 2.0 is a quality release: the generator was rewritten as a proper increm
 - **Diagnostics**
   - `CG0001` (error): the annotated type is not `partial`. Generation is skipped for it.
   - `CG0002` (warning): the type already declares a constructor with the same signature as the generated one. Generation is skipped for it.
+  - `CG0003` (error): the annotated type is `static` and cannot declare an instance constructor. Generation is skipped for it.
   - A constructor with a different signature no longer blocks generation.
 - **Structs and record structs.** `[GenerateFullConstructor]` and `[GeneratedConstructorSettings]` now allow `AttributeTargets.Struct` as well as classes.
 - **Records.** Record classes and record structs are supported. A record with a primary constructor gets a constructor that chains to `this(...)`.
 - **Generic types.** Type parameters and their constraints are emitted for generic types, including multiple type parameters.
 - **Array-typed members** (`string[]`, `int[][]`) are included.
 - **Nullable annotations are preserved** on parameters (`string?`, `int?`).
-The declaring type's accessibility is respected, including nested private types. Abstract classes
+- **Accessibility.** The declaring type's accessibility is respected, including nested private types. Abstract classes get a `protected` constructor by default.
 - **Base-constructor chaining.**
   - Chaining picks the largest accessible base constructor.
   - Base constructors that are not accessible are not chained.
@@ -54,7 +55,7 @@ Each of these is covered by a test that fails on 1.0.2 and passes on 2.0.
 - **Parameter name collisions.** A normalized parameter name could clash with another member, for example `_value` and `Value`, or a duplicate name across the inheritance chain. The parameters are now disambiguated (`value`, `value1`).
 - **Partial types split across syntax trees** and **types with no dependencies** now generate correctly. An empty type gets a parameterless constructor.
 - **Generic record classes** and **records with a primary constructor** generated nothing. They now generate a constructor.
-events are ignored,
+- **Events and non-auto properties** are ignored instead of becoming constructor parameters.
 - **Optional parameters** are ordered last and use `default`.
 
 ## Internal changes

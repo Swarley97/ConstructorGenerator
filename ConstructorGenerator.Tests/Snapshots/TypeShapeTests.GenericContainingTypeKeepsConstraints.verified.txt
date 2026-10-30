@@ -1,7 +1,7 @@
 ﻿{
   GeneratedSources: [
     {
-      HintName: Demo.Outer`1.Inner_ConstructorGenerator.g.cs,
+      HintName: Demo.Outer`1+Inner_ConstructorGenerator.g.cs,
       Source:
 namespace Demo
 {

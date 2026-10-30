@@ -49,7 +49,7 @@ internal class GenerateConstructorTask
         string modifiers = type.Modifiers.Length == 0 ? string.Empty : $"{type.Modifiers} ";
         string constraints = type.Constraints.Length == 0 ? string.Empty : $" {type.Constraints}";
         string declaration =
-            $"{type.Accessibility} {modifiers}partial {type.Kind} {type.Name}{type.TypeParameterSuffix}{constraints} {{ }}";
+            $"{type.Accessibility} {modifiers}partial {type.Kind} {EscapeIfKeyword(type.Name)}{type.TypeParameterSuffix}{constraints} {{ }}";
 
         return (TypeDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(declaration)!;
     }
@@ -71,7 +71,7 @@ internal class GenerateConstructorTask
     private static ConstructorDeclarationSyntax CreateConstructor(ConstructorInfo constructorInfo,
                                                                   GenerateParameterList parameterList)
     {
-        ConstructorDeclarationSyntax constructorDeclaration = SyntaxFactory.ConstructorDeclaration(constructorInfo.Type.Name)
+        ConstructorDeclarationSyntax constructorDeclaration = SyntaxFactory.ConstructorDeclaration(EscapeIfKeyword(constructorInfo.Type.Name))
             .AddModifiers(GetAccessibilityTokens(constructorInfo.ConstructorAccessibility).ToArray())
             .WithParameterList(CreateConstructorParameterList(parameterList))
             .WithBody(CreateConstructorBody(parameterList));
@@ -81,9 +81,11 @@ internal class GenerateConstructorTask
             constructorDeclaration = constructorDeclaration.WithInitializer(
                 CreateConstructorInitializer(constructorInfo.InitializerKind, parameterList));
         }
-        else if (constructorInfo.Type.Declaration.Kind.EndsWith("struct", StringComparison.Ordinal))
+        else if (parameterList.AllParameters.Count > 0 &&
+                 constructorInfo.Type.Declaration.Kind.EndsWith("struct", StringComparison.Ordinal))
         {
-            // a struct constructor must assign every field; chaining to this() default-initializes the unselected ones
+            // a struct constructor must assign every field; chaining to this() default-initializes the unselected ones.
+            // Not possible for the parameterless constructor, which would call itself.
             constructorDeclaration = constructorDeclaration.WithInitializer(
                 SyntaxFactory.ConstructorInitializer(SyntaxKind.ThisConstructorInitializer));
         }

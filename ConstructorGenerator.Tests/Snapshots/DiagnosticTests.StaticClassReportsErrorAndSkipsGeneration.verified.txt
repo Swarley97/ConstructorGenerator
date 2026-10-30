@@ -1,0 +1,5 @@
+﻿{
+  Diagnostics: [
+    (6,29): error CG0003: Static type 'Sample' cannot declare an instance constructor; generation was skipped
+  ]
+}

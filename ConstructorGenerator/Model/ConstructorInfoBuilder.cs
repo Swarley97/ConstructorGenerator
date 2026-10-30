@@ -82,6 +82,32 @@ internal class ConstructorInfoBuilder
         if (_constructorInfos.TryGetValue(namedTypeSymbol, out ConstructorInfo existingInfo))
             return existingInfo;
 
+        ConstructorShape shape = CollectShape(namedTypeSymbol);
+
+        List<DiagnosticInfo> diagnostics = new();
+        ReportIfNotPartial(namedTypeSymbol, diagnostics);
+        ReportIfStatic(namedTypeSymbol, diagnostics);
+        ReportIfConstructorAlreadyExists(namedTypeSymbol, shape.Parameters.Concat(shape.InitializerParameters),
+            diagnostics);
+
+        ConstructorInfo constructorInfo = new(TypeModel.Create(namedTypeSymbol),
+            GetAccessibility(namedTypeSymbol),
+            shape.Parameters.Select(x => x.Info).ToEquatableArray(),
+            shape.InitializerKind,
+            shape.InitializerParameters.Select(x => x.Info).ToEquatableArray(),
+            diagnostics.ToEquatableArray());
+
+        _constructorInfos[namedTypeSymbol] = constructorInfo;
+        _allParameterModels[namedTypeSymbol] = shape.Parameters.Concat(shape.InitializerParameters).ToList();
+        return constructorInfo;
+    }
+
+    /// <summary>
+    /// Collects the parameters of the constructor generated for a type. Works for constructed generic types
+    /// as well, so the parameter types of a base such as <c>Base&lt;int&gt;</c> are the substituted ones.
+    /// </summary>
+    private ConstructorShape CollectShape(INamedTypeSymbol namedTypeSymbol)
+    {
         List<ParameterModel> initializerParameters;
         ConstructorInitializerKind initializerKind;
 
@@ -122,21 +148,7 @@ internal class ConstructorInfoBuilder
             }
         }
 
-        List<DiagnosticInfo> diagnostics = new();
-        ReportIfNotPartial(namedTypeSymbol, diagnostics);
-        ReportIfConstructorAlreadyExists(namedTypeSymbol, primaryConstructor, parameters.Concat(initializerParameters),
-            diagnostics);
-
-        ConstructorInfo constructorInfo = new(TypeModel.Create(namedTypeSymbol),
-            GetAccessibility(namedTypeSymbol),
-            parameters.Select(x => x.Info).ToEquatableArray(),
-            initializerKind,
-            initializerParameters.Select(x => x.Info).ToEquatableArray(),
-            diagnostics.ToEquatableArray());
-
-        _constructorInfos[namedTypeSymbol] = constructorInfo;
-        _allParameterModels[namedTypeSymbol] = parameters.Concat(initializerParameters).ToList();
-        return constructorInfo;
+        return new ConstructorShape(initializerKind, initializerParameters, parameters);
     }
 
     private static IMethodSymbol? GetPrimaryConstructor(INamedTypeSymbol namedTypeSymbol)
@@ -164,8 +176,16 @@ internal class ConstructorInfoBuilder
         }
     }
 
+    private static void ReportIfStatic(INamedTypeSymbol namedTypeSymbol, List<DiagnosticInfo> diagnostics)
+    {
+        if (!namedTypeSymbol.IsStatic)
+            return;
+
+        diagnostics.Add(DiagnosticInfo.Create(Diagnostics.StaticTypeNotSupported,
+            namedTypeSymbol.Locations.FirstOrDefault() ?? Location.None, namedTypeSymbol.Name));
+    }
+
     private static void ReportIfConstructorAlreadyExists(INamedTypeSymbol namedTypeSymbol,
-                                                         IMethodSymbol? primaryConstructor,
                                                          IEnumerable<ParameterModel> generatedParameters,
                                                          List<DiagnosticInfo> diagnostics)
     {
@@ -176,7 +196,6 @@ internal class ConstructorInfoBuilder
 
         IMethodSymbol? conflictingConstructor = namedTypeSymbol.InstanceConstructors.FirstOrDefault(constructor =>
             !constructor.IsImplicitlyDeclared &&
-            !SymbolEqualityComparer.Default.Equals(constructor, primaryConstructor) &&
             constructor.Parameters.Length == orderedParameters.Length &&
             constructor.Parameters.Select((x, i) => SymbolEqualityComparer.Default.Equals(x.Type, orderedParameters[i].TypeSymbol) &&
                                                     // ref, out and in cannot be overloaded on each other, only against by-value
@@ -229,17 +248,29 @@ internal class ConstructorInfoBuilder
         if (baseType == null || baseType.SpecialType == SpecialType.System_Object)
             return new List<ParameterModel>();
 
-        if (!_typesToInspect.Contains(baseType, SymbolEqualityComparer.Default))
+        // _typesToInspect holds declaration symbols, whereas a base type is usually a constructed generic
+        INamedTypeSymbol originalBaseType = baseType.OriginalDefinition;
+        if (!_typesToInspect.Contains(originalBaseType, SymbolEqualityComparer.Default))
             return GetParameterInfos(baseType, namedTypeSymbol);
 
-        ConstructorInfo baseInfo = Build(baseType);
-        if (baseInfo.Diagnostics.Count > 0)
+        ConstructorInfo baseInfo = Build(originalBaseType);
+        if (baseInfo.Diagnostics.Count > 0 || !IsGeneratedConstructorChainable(baseInfo.ConstructorAccessibility))
         {
-            // no constructor is generated for the base, so chain to one of its real constructors instead
+            // no callable constructor is generated for the base, so chain to one of its real constructors instead
             return GetParameterInfos(baseType, namedTypeSymbol);
         }
 
-        return _allParameterModels[baseType].ToList();
+        if (SymbolEqualityComparer.Default.Equals(baseType, originalBaseType))
+            return _allParameterModels[originalBaseType].ToList();
+
+        ConstructorShape baseShape = CollectShape(baseType);
+        return baseShape.Parameters.Concat(baseShape.InitializerParameters).ToList();
+    }
+
+    // generated base constructors live in the same assembly as the derived type
+    private static bool IsGeneratedConstructorChainable(Accessibility accessibility)
+    {
+        return accessibility != Accessibility.Private && accessibility != Accessibility.NotApplicable;
     }
 
     private List<ParameterModel> GetParameterInfos(INamedTypeSymbol baseType, INamedTypeSymbol derivedType)
@@ -301,4 +332,8 @@ internal class ConstructorInfoBuilder
     /// (e.g. to detect conflicting user-declared constructors). The symbol never leaves the builder.
     /// </summary>
     private sealed record ParameterModel(ParameterInfo Info, ITypeSymbol TypeSymbol);
+
+    private sealed record ConstructorShape(ConstructorInitializerKind InitializerKind,
+                                           List<ParameterModel> InitializerParameters,
+                                           List<ParameterModel> Parameters);
 }

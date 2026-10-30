@@ -116,4 +116,21 @@ public class DiagnosticTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task StaticClassReportsErrorAndSkipsGeneration()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public static partial class Sample
+            {
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

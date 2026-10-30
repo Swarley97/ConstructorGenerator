@@ -323,4 +323,28 @@ public class InheritanceTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task GeneratedConstructorOfConstructedGenericBaseIsChained()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial class Base<T>
+            {
+                public readonly T Value;
+            }
+
+            [GenerateFullConstructor]
+            public partial class Child : Base<int>
+            {
+                public readonly string Own;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

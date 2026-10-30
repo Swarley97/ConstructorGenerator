@@ -341,4 +341,39 @@ public class TypeShapeTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task KeywordTypeAndTypeParameterNamesAreEscaped()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial class @class<@event>
+            {
+                public readonly @event Value;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task EmptyStructDoesNotChainParameterlessConstructorToItself()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial struct Sample
+            {
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

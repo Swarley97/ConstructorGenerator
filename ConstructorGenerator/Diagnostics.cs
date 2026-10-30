@@ -21,4 +21,12 @@ internal static class Diagnostics
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor StaticTypeNotSupported = new(
+        id: "CG0003",
+        title: "Static type not supported",
+        messageFormat: "Static type '{0}' cannot declare an instance constructor; generation was skipped",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }

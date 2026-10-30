@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace ConstructorGenerator.Model;
 
@@ -73,7 +74,7 @@ internal record TypeDeclarationModel(string Name,
 
             if (constraints.Count > 0)
             {
-                clauses.Add($"where {typeParameter.Name} : {string.Join(", ", constraints)}");
+                clauses.Add($"where {Escape(typeParameter.Name)} : {string.Join(", ", constraints)}");
             }
         }
 
@@ -116,7 +117,12 @@ internal record TypeDeclarationModel(string Name,
             return string.Empty;
         }
 
-        return $"<{string.Join(", ", type.TypeParameters.Select(x => x.Name))}>";
+        return $"<{string.Join(", ", type.TypeParameters.Select(x => Escape(x.Name)))}>";
+    }
+
+    private static string Escape(string identifier)
+    {
+        return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ? "@" + identifier : identifier;
     }
 }
 
@@ -159,7 +165,7 @@ internal record TypeModel(TypeDeclarationModel Declaration,
 
         string containingTypePrefix = type.ContainingType == null
             ? string.Empty
-            : $"{GetContainingTypePath(type.ContainingType)}.";
+            : $"{GetContainingTypePath(type.ContainingType)}+";
 
         return $"{namespaceText}.{containingTypePrefix}{type.MetadataName}_ConstructorGenerator.g.cs";
     }
@@ -171,6 +177,6 @@ internal record TypeModel(TypeDeclarationModel Declaration,
             return containingType.MetadataName;
         }
 
-        return $"{GetContainingTypePath(containingType.ContainingType)}.{containingType.MetadataName}";
+        return $"{GetContainingTypePath(containingType.ContainingType)}+{containingType.MetadataName}";
     }
 }
