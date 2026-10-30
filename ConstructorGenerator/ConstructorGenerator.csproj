@@ -16,6 +16,8 @@
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 		<IsRoslynComponent>true</IsRoslynComponent>
+		<!-- NU5128: package intentionally has no regular lib output (IncludeBuildOutput=false); analyzer/generator dlls are packed manually below -->
+		<NoWarn>$(NoWarn);NU5128</NoWarn>
 		<GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
 		<AutoIncrementPackageRevision>true</AutoIncrementPackageRevision>
 	</PropertyGroup>
