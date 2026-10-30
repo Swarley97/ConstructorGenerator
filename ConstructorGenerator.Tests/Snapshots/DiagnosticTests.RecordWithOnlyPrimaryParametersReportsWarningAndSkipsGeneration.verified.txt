@@ -1,0 +1,5 @@
+﻿{
+  Diagnostics: [
+    (6,23): warning CG0002: Type 'Sample' already declares a constructor with the same signature as the generated one; generation was skipped
+  ]
+}

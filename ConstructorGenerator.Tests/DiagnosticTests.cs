@@ -133,4 +133,21 @@ public class DiagnosticTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task RecordWithOnlyPrimaryParametersReportsWarningAndSkipsGeneration()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial record Sample(string Positional)
+            {
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }
