@@ -1,0 +1,38 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.First.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo.First
+{
+    public partial class Sample
+    {
+        public Sample(string value)
+        {
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.Second.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo.Second
+{
+    public partial class Sample
+    {
+        public Sample(int value)
+        {
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

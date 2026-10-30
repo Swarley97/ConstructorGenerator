@@ -16,6 +16,15 @@ public class MemberValidator
         if (memberSymbol.IsImplicitlyDeclared)
             return false; // funny compiler field
 
+        if (memberSymbol.IsStatic)
+            return false; // static members cannot be initialized from an instance constructor
+
+        if (memberSymbol is IFieldSymbol { IsConst: true })
+            return false;
+
+        if (IsPositionalRecordMember(memberSymbol))
+            return false; // already initialized by the primary constructor
+
         AttributeData? constructorDependencyAttributeData = WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
         if (!generateFullConstructorRequested && constructorDependencyAttributeData == null)
         {
@@ -52,6 +61,11 @@ public class MemberValidator
         return explicitConstructorDependencyAttributeData != null || IsReadOnlyOrInitOnlyProperty(propertySymbol);
     }
     
+    private static bool IsPositionalRecordMember(ISymbol memberSymbol)
+    {
+        return memberSymbol.DeclaringSyntaxReferences.Any(x => x.GetSyntax() is ParameterSyntax);
+    }
+
     private static bool IsAutoProperty(IPropertySymbol propertySymbol)
     {
         // Get fields declared in the same type as the property

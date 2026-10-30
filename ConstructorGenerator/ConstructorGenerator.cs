@@ -13,24 +13,46 @@ namespace ConstructorGenerator
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            IncrementalValuesProvider<INamedTypeSymbol?> interestingClasses =
+            // Syntax nodes are reference-stable across runs as long as their tree is unchanged, whereas symbols
+            // are recreated for every compilation. Keeping symbols out of the pipeline until the (equatable)
+            // ConstructorInfo is produced is what allows the source output to be cached.
+            IncrementalValuesProvider<TypeDeclarationSyntax> interestingClasses =
                 context.SyntaxProvider.CreateSyntaxProvider((node, _) => IsInterestingClass(node),
-                                                            (syntaxContext, _) => GetNamedTypeSymbol(syntaxContext));
+                                                            (syntaxContext, _) => GetTypeDeclaration(syntaxContext))
+                    .Where(x => x is not null)!;
 
-            IncrementalValuesProvider<ConstructorInfo> constructorInfos = interestingClasses.Collect().SelectMany((classes, _) =>
+            IncrementalValuesProvider<ConstructorInfo> constructorInfos = interestingClasses.Collect()
+                .Combine(context.CompilationProvider)
+                .SelectMany((input, cancellationToken) =>
+                {
+                    (ImmutableArray<TypeDeclarationSyntax> declarations, Compilation compilation) = input;
+
+                    ImmutableArray<INamedTypeSymbol> classes = declarations
+                        .Select(x => compilation.GetSemanticModel(x.SyntaxTree).GetDeclaredSymbol(x, cancellationToken))
+                        .OfType<INamedTypeSymbol>()
+                        .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
+                        .ToImmutableArray();
+
+                    ConstructorInfoBuilder builder = new();
+                    return builder.Build(classes);
+                });
+
+            // ConstructorInfo is symbol-free and equatable, so everything from here on is cached
+            // as long as the generated constructor does not change.
+            context.RegisterSourceOutput(constructorInfos, (sourceProductionContext, constructorInfo) =>
             {
-                classes = classes.Distinct<INamedTypeSymbol?>(SymbolEqualityComparer.Default).ToImmutableArray();
+                foreach (DiagnosticInfo diagnostic in constructorInfo.Diagnostics)
+                {
+                    sourceProductionContext.ReportDiagnostic(diagnostic.ToDiagnostic());
+                }
 
-                ConstructorInfoBuilder builder = new();
-                return builder.Build(classes.Where(x => x is not null)!);
-            });
+                if (constructorInfo.Diagnostics.Count > 0)
+                {
+                    return;
+                }
 
-            IncrementalValuesProvider<(ConstructorInfo, GenerationResult)> generationResult =
-                constructorInfos.Select((x, _) => (x, new GenerateConstructorTask().Generate(x)));
-
-            context.RegisterSourceOutput(generationResult, (sourceProductionContext, source) =>
-            {
-                sourceProductionContext.AddSource($"{source.Item1.Type.ContainingNamespace}.{source.Item1.Type.Name}_ConstructorGenerator.g.cs", source.Item2.Code);
+                GenerationResult result = new GenerateConstructorTask().Generate(constructorInfo);
+                sourceProductionContext.AddSource(constructorInfo.Type.HintName, result.Code);
             });
         }
 
@@ -38,7 +60,7 @@ namespace ConstructorGenerator
         {
             return syntaxNode switch
             {
-                ClassDeclarationSyntax classDeclaration when (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(classDeclaration.AttributeLists) || WellKnownAttributes.GenerateFullConstructorAttribute.IsDefined(classDeclaration.AttributeLists)) => true,
+                TypeDeclarationSyntax typeDeclaration when (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(typeDeclaration.AttributeLists) || WellKnownAttributes.GenerateFullConstructorAttribute.IsDefined(typeDeclaration.AttributeLists)) => true,
                 _ => syntaxNode is MemberDeclarationSyntax
                 {
                     Parent: TypeDeclarationSyntax
@@ -46,14 +68,9 @@ namespace ConstructorGenerator
             };
         }
 
-        private INamedTypeSymbol? GetNamedTypeSymbol(GeneratorSyntaxContext syntaxContext)
+        private static TypeDeclarationSyntax? GetTypeDeclaration(GeneratorSyntaxContext syntaxContext)
         {
-            TypeDeclarationSyntax? typeDeclarationSyntax = syntaxContext.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
-            if (typeDeclarationSyntax == null)
-            {
-                return null;
-            }
-            return syntaxContext.SemanticModel.GetDeclaredSymbol(typeDeclarationSyntax) as INamedTypeSymbol;
+            return syntaxContext.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
         }
     }
 }

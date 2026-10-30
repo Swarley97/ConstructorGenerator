@@ -1,0 +1,22 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample`2_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Sample<TKey, TValue>
+    {
+        public Sample(TKey key, TValue value)
+        {
+            Key = key;
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

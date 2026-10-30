@@ -4,14 +4,22 @@ using System.Linq;
 using ConstructorGenerator.Attributes;
 using ConstructorGenerator.Model.Helper;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ConstructorGenerator.Model;
 
 internal class ConstructorInfoBuilder
 {
+    private static readonly SymbolDisplayFormat TypeDisplayFormat = SymbolDisplayFormat.FullyQualifiedFormat
+        .AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
     private List<INamedTypeSymbol> _typesToInspect = new();
 
     private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos =
+        new(SymbolEqualityComparer.Default);
+
+    private readonly Dictionary<INamedTypeSymbol, List<ParameterModel>> _allParameterModels =
         new(SymbolEqualityComparer.Default);
 
     private readonly MemberValidator _memberValidator = new();
@@ -37,16 +45,18 @@ internal class ConstructorInfoBuilder
 
     private Accessibility GetAccessibility(INamedTypeSymbol namedTypeSymbol)
     {
+        Accessibility defaultAccessibility = namedTypeSymbol.IsAbstract ? Accessibility.Protected : Accessibility.Public;
+
         AttributeData? attributeData =
             WellKnownAttributes.GeneratedConstructorSettingsAttribute.GetAttributeData(namedTypeSymbol);
         if (attributeData == null)
-            return Accessibility.Public;
+            return defaultAccessibility;
 
         TypedConstant accessibilityTypeConstant = attributeData.NamedArguments.FirstOrDefault(x =>
             x.Key == nameof(GeneratedConstructorSettingsAttribute.ConstructorAccessibility)).Value;
 
         if (accessibilityTypeConstant.IsNull)
-            return Accessibility.Public;
+            return defaultAccessibility;
 
         ConstructorAccessibility constructorAccessibility = default;
         if (accessibilityTypeConstant.Value is int intValue &&
@@ -57,64 +67,142 @@ internal class ConstructorInfoBuilder
 
         return constructorAccessibility switch
         {
-            ConstructorAccessibility.Default => Accessibility.Public,
+            ConstructorAccessibility.Default => defaultAccessibility,
             ConstructorAccessibility.SameAsClass => namedTypeSymbol.DeclaredAccessibility,
             ConstructorAccessibility.Private => Accessibility.Private,
             ConstructorAccessibility.Protected => Accessibility.Protected,
             ConstructorAccessibility.Internal => Accessibility.Internal,
             ConstructorAccessibility.Public => Accessibility.Public,
-            _ => Accessibility.Public
+            _ => defaultAccessibility
         };
     }
 
     private ConstructorInfo Build(INamedTypeSymbol namedTypeSymbol)
     {
-        IReadOnlyCollection<ParameterInfo> baseParameters = GetBaseParametersIfAny(namedTypeSymbol);
-        if (WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol) &&
-            baseParameters.Count > 0)
+        if (_constructorInfos.TryGetValue(namedTypeSymbol, out ConstructorInfo existingInfo))
+            return existingInfo;
+
+        List<ParameterModel> initializerParameters;
+        ConstructorInitializerKind initializerKind;
+
+        IMethodSymbol? primaryConstructor = GetPrimaryConstructor(namedTypeSymbol);
+        if (primaryConstructor != null)
         {
-            return new ConstructorInfo(namedTypeSymbol, GetAccessibility(namedTypeSymbol), Array.Empty<ParameterInfo>(),
-                baseParameters);
+            // a non-primary constructor of a type with a primary constructor must chain to this(...)
+            initializerKind = ConstructorInitializerKind.This;
+            initializerParameters = GetParameterInfos(primaryConstructor);
+        }
+        else
+        {
+            initializerParameters = GetBaseParametersIfAny(namedTypeSymbol);
+            initializerKind = initializerParameters.Count > 0
+                ? ConstructorInitializerKind.Base
+                : ConstructorInitializerKind.None;
         }
 
-        List<ParameterInfo> parameterInfos = new();
-        AttributeData? generateFullConstructorAttributeData =
-            WellKnownAttributes.GenerateFullConstructorAttribute.GetAttributeData(namedTypeSymbol);
-
-        foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers())
+        List<ParameterModel> parameters = new();
+        bool onlyForwardBaseParameters = initializerKind == ConstructorInitializerKind.Base &&
+                                         WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol);
+        if (!onlyForwardBaseParameters)
         {
-            if (!_memberValidator.ShouldGenerateConstructorParameterForMember(memberSymbol,
-                    generateFullConstructorAttributeData != null))
-                continue;
+            AttributeData? generateFullConstructorAttributeData =
+                WellKnownAttributes.GenerateFullConstructorAttribute.GetAttributeData(namedTypeSymbol);
 
-            ParameterInfo? parameterInfo = GetParameterInfo(memberSymbol);
-            if (parameterInfo != null)
+            foreach (ISymbol memberSymbol in namedTypeSymbol.GetMembers())
             {
-                parameterInfos.Add(parameterInfo);
+                if (!_memberValidator.ShouldGenerateConstructorParameterForMember(memberSymbol,
+                        generateFullConstructorAttributeData != null))
+                    continue;
+
+                ParameterModel? parameterInfo = GetParameterInfo(memberSymbol);
+                if (parameterInfo != null)
+                {
+                    parameters.Add(parameterInfo);
+                }
             }
         }
 
-        ConstructorInfo constructorInfo =
-            new(namedTypeSymbol, GetAccessibility(namedTypeSymbol), parameterInfos, baseParameters);
+        List<DiagnosticInfo> diagnostics = new();
+        ReportIfNotPartial(namedTypeSymbol, diagnostics);
+        ReportIfConstructorAlreadyExists(namedTypeSymbol, primaryConstructor, parameters.Concat(initializerParameters),
+            diagnostics);
+
+        ConstructorInfo constructorInfo = new(TypeModel.Create(namedTypeSymbol),
+            GetAccessibility(namedTypeSymbol),
+            parameters.Select(x => x.Info).ToEquatableArray(),
+            initializerKind,
+            initializerParameters.Select(x => x.Info).ToEquatableArray(),
+            diagnostics.ToEquatableArray());
 
         _constructorInfos[namedTypeSymbol] = constructorInfo;
+        _allParameterModels[namedTypeSymbol] = parameters.Concat(initializerParameters).ToList();
         return constructorInfo;
     }
 
-    private ParameterInfo? GetParameterInfo(ISymbol memberSymbol)
+    private static IMethodSymbol? GetPrimaryConstructor(INamedTypeSymbol namedTypeSymbol)
+    {
+        return namedTypeSymbol.InstanceConstructors.FirstOrDefault(x =>
+            x.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax() is TypeDeclarationSyntax));
+    }
+
+    private static void ReportIfNotPartial(INamedTypeSymbol namedTypeSymbol, List<DiagnosticInfo> diagnostics)
+    {
+        TypeDeclarationSyntax? nonPartialDeclaration = namedTypeSymbol.DeclaringSyntaxReferences
+            .Select(x => x.GetSyntax())
+            .OfType<TypeDeclarationSyntax>()
+            .FirstOrDefault(x => !x.Modifiers.Any(SyntaxKind.PartialKeyword));
+
+        if (nonPartialDeclaration == null)
+            return;
+
+        diagnostics.Add(DiagnosticInfo.Create(Diagnostics.TypeMustBePartial,
+            nonPartialDeclaration.Identifier.GetLocation(), namedTypeSymbol.Name));
+    }
+
+    private static void ReportIfConstructorAlreadyExists(INamedTypeSymbol namedTypeSymbol,
+                                                         IMethodSymbol? primaryConstructor,
+                                                         IEnumerable<ParameterModel> generatedParameters,
+                                                         List<DiagnosticInfo> diagnostics)
+    {
+        // the same ordering the emitted constructor uses
+        ITypeSymbol[] generatedParameterTypes = generatedParameters
+            .OrderBy(x => x.Info.IsParams ? 2 : x.Info.IsOptional ? 1 : 0)
+            .Select(x => x.TypeSymbol)
+            .ToArray();
+
+        IMethodSymbol? conflictingConstructor = namedTypeSymbol.InstanceConstructors.FirstOrDefault(constructor =>
+            !constructor.IsImplicitlyDeclared &&
+            !SymbolEqualityComparer.Default.Equals(constructor, primaryConstructor) &&
+            constructor.Parameters.Length == generatedParameterTypes.Length &&
+            constructor.Parameters.Select(x => x.Type)
+                .SequenceEqual(generatedParameterTypes, SymbolEqualityComparer.Default));
+
+        if (conflictingConstructor == null)
+            return;
+
+        Location location = conflictingConstructor.Locations.FirstOrDefault() ??
+                            namedTypeSymbol.Locations.FirstOrDefault() ??
+                            Location.None;
+
+        diagnostics.Add(DiagnosticInfo.Create(Diagnostics.ConstructorAlreadyExists, location, namedTypeSymbol.Name));
+    }
+
+    private ParameterModel? GetParameterInfo(ISymbol memberSymbol)
     {
         AttributeData? constructorDependencyAttributeData =
             WellKnownAttributes.ConstructorDependencyAttribute.GetAttributeData(memberSymbol);
         bool isOptional = ExtractIsOptional(constructorDependencyAttributeData);
 
-        return memberSymbol switch
+        ITypeSymbol? memberType = memberSymbol switch
         {
-            IFieldSymbol { Type: INamedTypeSymbol fieldType } => new ParameterInfo(fieldType, null, memberSymbol.Name,
-                isOptional),
-            IPropertySymbol { Type: INamedTypeSymbol propertyType } => new ParameterInfo(propertyType, null,
-                memberSymbol.Name, isOptional),
+            IFieldSymbol fieldSymbol => fieldSymbol.Type,
+            IPropertySymbol propertySymbol => propertySymbol.Type,
             _ => null
         };
+
+        return memberType == null
+            ? null
+            : CreateParameter(memberType, null, memberSymbol.Name, isOptional, RefKind.None, false);
     }
 
     private static bool ExtractIsOptional(AttributeData? attributeData)
@@ -129,43 +217,60 @@ internal class ConstructorInfoBuilder
         return isOptional;
     }
 
-
-    private IReadOnlyCollection<ParameterInfo> GetBaseParametersIfAny(INamedTypeSymbol namedTypeSymbol)
+    private List<ParameterModel> GetBaseParametersIfAny(INamedTypeSymbol namedTypeSymbol)
     {
         INamedTypeSymbol? baseType = namedTypeSymbol.BaseType;
-        if (baseType == null)
-            return Array.Empty<ParameterInfo>();
+        if (baseType == null || baseType.SpecialType == SpecialType.System_Object)
+            return new List<ParameterModel>();
 
-        if (!_typesToInspect.Contains(baseType))
+        if (!_typesToInspect.Contains(baseType, SymbolEqualityComparer.Default))
             return GetParameterInfos(baseType);
 
-        if (_constructorInfos.TryGetValue(baseType, out ConstructorInfo info))
-            return info.AllParameters;
-
-        info = Build(baseType);
-        _constructorInfos[baseType] = info;
-        return info.AllParameters;
+        Build(baseType);
+        return _allParameterModels[baseType].ToList();
     }
 
-    private IReadOnlyCollection<ParameterInfo> GetParameterInfos(INamedTypeSymbol baseType)
+    private List<ParameterModel> GetParameterInfos(INamedTypeSymbol baseType)
     {
-        IMethodSymbol? baseConstructor = baseType.Constructors.Where(x => !x.IsStatic)
-            .OrderByDescending(x => x.Parameters.Length).FirstOrDefault();
-        
-        return baseConstructor == null ? Array.Empty<ParameterInfo>() : GetParameterInfos(baseConstructor);
+        IMethodSymbol? baseConstructor = baseType.InstanceConstructors
+            .Where(x => x.DeclaredAccessibility != Accessibility.Private)
+            .OrderByDescending(x => x.Parameters.Length)
+            .FirstOrDefault();
+
+        return baseConstructor == null ? new List<ParameterModel>() : GetParameterInfos(baseConstructor);
     }
 
-    private IReadOnlyCollection<ParameterInfo> GetParameterInfos(IMethodSymbol baseConstructor)
+    private List<ParameterModel> GetParameterInfos(IMethodSymbol baseConstructor)
     {
-        List<ParameterInfo> parameterInfos = new();
+        List<ParameterModel> parameterInfos = new();
         foreach (IParameterSymbol parameter in baseConstructor.Parameters)
         {
-            if (parameter.Type is not INamedTypeSymbol namedType)
-                continue;
-
-            parameterInfos.Add(new ParameterInfo(namedType, parameter.Name, null, parameter.IsOptional));
+            parameterInfos.Add(CreateParameter(parameter.Type, parameter.Name, null, parameter.IsOptional,
+                parameter.RefKind, parameter.IsParams));
         }
 
         return parameterInfos;
     }
+
+    private static ParameterModel CreateParameter(ITypeSymbol type,
+                                                  string? name,
+                                                  string? assignmentTargetMemberName,
+                                                  bool isOptional,
+                                                  RefKind refKind,
+                                                  bool isParams)
+    {
+        string typeText = type.ToDisplayString(TypeDisplayFormat);
+        bool requiresNullableContext = typeText != type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        ParameterInfo info = new(typeText, name, assignmentTargetMemberName, isOptional, refKind, isParams,
+            requiresNullableContext);
+
+        return new ParameterModel(info, type);
+    }
+
+    /// <summary>
+    /// Pairs the pipeline model with the originating type symbol, which is only needed while building
+    /// (e.g. to detect conflicting user-declared constructors). The symbol never leaves the builder.
+    /// </summary>
+    private sealed record ParameterModel(ParameterInfo Info, ITypeSymbol TypeSymbol);
 }

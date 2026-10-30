@@ -1,0 +1,23 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Sample
+    {
+        public Sample(string readonlyField, string readonlyProperty, string initProperty)
+        {
+            ReadonlyField = readonlyField;
+            ReadonlyProperty = readonlyProperty;
+            InitProperty = initProperty;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

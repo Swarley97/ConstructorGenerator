@@ -1,0 +1,24 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+#nullable enable
+namespace Demo
+{
+    public partial class Sample
+    {
+        public Sample(string? optionalText, int? optionalNumber, string required)
+        {
+            OptionalText = optionalText;
+            OptionalNumber = optionalNumber;
+            Required = required;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

@@ -1,10 +1,11 @@
 using System;
-using Microsoft.CodeAnalysis;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using ConstructorGenerator.Model;
-using Scriban;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace ConstructorGenerator.Generation;
 
@@ -12,69 +13,230 @@ internal class GenerateConstructorTask
 {
     internal GenerationResult Generate(ConstructorInfo constructorInfo)
     {
-        Template template = Template.Parse(CodeTemplates.ConstructorTemplate);
         GenerateParameterList parameterList = CreateParameterList(constructorInfo);
 
-        Dictionary<string, object> scribanDataModel = new();
-        GetNonParameterFields(scribanDataModel, constructorInfo);
-        GetParameterFields(scribanDataModel, parameterList);
+        TypeDeclarationSyntax generatedType = CreateTypeDeclaration(constructorInfo.Type.Declaration)
+            .AddMembers(CreateConstructor(constructorInfo, parameterList), CreateOnConstructingPartialMethod());
 
-        return new GenerationResult(template.Render(scribanDataModel));
-    }
+        MemberDeclarationSyntax rootType = WrapInContainingTypes(constructorInfo.Type, generatedType);
 
-    private void GetNonParameterFields(Dictionary<string, object> scribanDataModel, ConstructorInfo constructorInfo)
-    {
-        string namespaceFullName = constructorInfo.Type.ContainingNamespace.ToDisplayString();
-        string className = constructorInfo.Type.Name;
-        string accessModifier = constructorInfo.Type.DeclaredAccessibility.ToString().ToLowerInvariant();
-        string typeArgs = constructorInfo.Type.IsGenericType
-                            ? string.Join(", ", constructorInfo.Type.TypeParameters.Select(x => x.Name))
-                            : string.Empty;
-        string typeKeyword;
-        if (constructorInfo.Type.TypeKind == TypeKind.Struct)
-            typeKeyword = "struct";
-        else if (constructorInfo.Type.IsRecord)
-            typeKeyword = "record";
-        else
-            typeKeyword = "class";
-
-        scribanDataModel.Add("Namespace", namespaceFullName);
-        scribanDataModel.Add("ClassName", className);
-        scribanDataModel.Add("TypeArguments", typeArgs);
-        scribanDataModel.Add("ClassAccessModifier", accessModifier);
-        scribanDataModel.Add("ConstructorAccessModifier", constructorInfo.ConstructorAccessibility.ToString().ToLower());
-        scribanDataModel.Add("ClassType", typeKeyword);
-    }
-
-    private void GetParameterFields(Dictionary<string, object> scribanDataModel, GenerateParameterList parameterList)
-    {
-        string parameterListText = string.Join(", ", parameterList.AllParameters
-            .OrderBy(x => x.IsOptional ? int.MaxValue : 0)
-            .Select(x => $"{x.Type} {x.Name}{(x.IsOptional ? " = default" : string.Empty)}"));
-
-        StringBuilder assignmentListBuilder = new();
-        foreach (GenerateParameter? parameter in parameterList.Parameters)
+        CompilationUnitSyntax source = SyntaxFactory.CompilationUnit();
+        if (constructorInfo.Type.Namespace == null)
         {
-            if (parameter.Origin.AssignmentTargetMemberName == null)
-                continue;
+            source = source.AddMembers(rootType);
+        }
+        else
+        {
+            BaseNamespaceDeclarationSyntax namespaceDeclaration = SyntaxFactory.NamespaceDeclaration(
+                    SyntaxFactory.ParseName(constructorInfo.Type.Namespace))
+                .AddMembers(rootType);
 
-            assignmentListBuilder.AppendLine($"{parameter.Origin.AssignmentTargetMemberName} = {parameter.Name};");
+            source = source.AddMembers(namespaceDeclaration);
         }
 
-        scribanDataModel.Add("ParameterList", parameterListText);
-        scribanDataModel.Add("AssignmentList", assignmentListBuilder.ToString().TrimEnd());
-        scribanDataModel.Add("HasBaseParameters", parameterList.BaseParameters.Count > 0);
-        scribanDataModel.Add("BaseParameterList", string.Join(", ", parameterList.BaseParameters.Select(x => x.Name)));
+        source = source.NormalizeWhitespace();
+
+        if (constructorInfo.RequiresNullableContext)
+        {
+            source = source.WithLeadingTrivia(SyntaxFactory.ParseLeadingTrivia("#nullable enable" + Environment.NewLine));
+        }
+
+        return new GenerationResult(source.ToFullString());
+    }
+
+    private static TypeDeclarationSyntax CreateTypeDeclaration(TypeDeclarationModel type)
+    {
+        string declaration =
+            $"{type.Accessibility} partial {type.Kind} {type.Name}{type.TypeParameterSuffix} {{ }}";
+
+        return (TypeDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(declaration)!;
+    }
+
+    private static MemberDeclarationSyntax WrapInContainingTypes(TypeModel type,
+                                                                  TypeDeclarationSyntax generatedType)
+    {
+        TypeDeclarationSyntax currentType = generatedType;
+
+        // containing types are stored outermost first, so wrap from the innermost outwards
+        foreach (TypeDeclarationModel containingType in type.ContainingTypes.Reverse())
+        {
+            currentType = CreateTypeDeclaration(containingType).AddMembers(currentType);
+        }
+
+        return currentType;
+    }
+
+    private static ConstructorDeclarationSyntax CreateConstructor(ConstructorInfo constructorInfo,
+                                                                  GenerateParameterList parameterList)
+    {
+        ConstructorDeclarationSyntax constructorDeclaration = SyntaxFactory.ConstructorDeclaration(constructorInfo.Type.Name)
+            .AddModifiers(GetAccessibilityTokens(constructorInfo.ConstructorAccessibility).ToArray())
+            .WithParameterList(CreateConstructorParameterList(parameterList))
+            .WithBody(CreateConstructorBody(parameterList));
+
+        if (constructorInfo.InitializerKind != ConstructorInitializerKind.None)
+        {
+            constructorDeclaration = constructorDeclaration.WithInitializer(
+                CreateConstructorInitializer(constructorInfo.InitializerKind, parameterList));
+        }
+
+        return constructorDeclaration;
+    }
+
+    private static ParameterListSyntax CreateConstructorParameterList(GenerateParameterList parameterList)
+    {
+        SeparatedSyntaxList<ParameterSyntax> parameters = SyntaxFactory.SeparatedList(
+            parameterList.AllParameters
+                .OrderBy(GetParameterOrder)
+                .Select(CreateParameter));
+
+        return SyntaxFactory.ParameterList(parameters);
+    }
+
+    /// <summary>
+    /// Required parameters first, then optional ones, and a params array always last.
+    /// </summary>
+    private static int GetParameterOrder(GenerateParameter parameter)
+    {
+        if (parameter.Origin.IsParams)
+            return 2;
+
+        return parameter.IsOptional ? 1 : 0;
+    }
+
+    private static ParameterSyntax CreateParameter(GenerateParameter parameter)
+    {
+        ParameterSyntax parameterSyntax = SyntaxFactory.Parameter(SyntaxFactory.Identifier(parameter.Name))
+            .WithType(SyntaxFactory.ParseTypeName(parameter.Type));
+
+        SyntaxKind modifierKind = GetParameterModifierKind(parameter.Origin);
+        if (modifierKind != SyntaxKind.None)
+        {
+            parameterSyntax = parameterSyntax.AddModifiers(SyntaxFactory.Token(modifierKind));
+        }
+
+        if (!parameter.IsOptional || parameter.Origin.RefKind != RefKind.None || parameter.Origin.IsParams)
+        {
+            return parameterSyntax;
+        }
+
+        EqualsValueClauseSyntax defaultValue = SyntaxFactory.EqualsValueClause(
+            SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression));
+
+        return parameterSyntax.WithDefault(defaultValue);
+    }
+
+    private static SyntaxKind GetParameterModifierKind(ParameterInfo parameter)
+    {
+        if (parameter.IsParams)
+            return SyntaxKind.ParamsKeyword;
+
+        return parameter.RefKind switch
+        {
+            RefKind.Ref => SyntaxKind.RefKeyword,
+            RefKind.Out => SyntaxKind.OutKeyword,
+            RefKind.In => SyntaxKind.InKeyword,
+            _ => SyntaxKind.None
+        };
+    }
+
+    private static BlockSyntax CreateConstructorBody(GenerateParameterList parameterList)
+    {
+        List<StatementSyntax> statements = new();
+        foreach (GenerateParameter parameter in parameterList.Parameters)
+        {
+            if (parameter.Origin.AssignmentTargetMemberName == null)
+            {
+                continue;
+            }
+
+            string memberName = parameter.Origin.AssignmentTargetMemberName;
+            IdentifierNameSyntax memberIdentifier = SyntaxFactory.IdentifierName(EscapeIfKeyword(memberName));
+            ExpressionSyntax target = memberName == parameter.Name.TrimStart('@')
+                // the member has the same name as the parameter (e.g. a lowercase field); qualify to avoid self assignment
+                ? SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ThisExpression(),
+                    memberIdentifier)
+                : memberIdentifier;
+
+            statements.Add(SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    target,
+                    SyntaxFactory.IdentifierName(parameter.Name))));
+        }
+
+        statements.Add(SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName("OnConstructing"))));
+
+        return SyntaxFactory.Block(statements);
+    }
+
+    private static ConstructorInitializerSyntax CreateConstructorInitializer(ConstructorInitializerKind kind,
+                                                                             GenerateParameterList parameterList)
+    {
+        SeparatedSyntaxList<ArgumentSyntax> arguments = SyntaxFactory.SeparatedList(
+            parameterList.InitializerParameters.Select(CreateArgument));
+
+        SyntaxKind initializerKind = kind == ConstructorInitializerKind.This
+            ? SyntaxKind.ThisConstructorInitializer
+            : SyntaxKind.BaseConstructorInitializer;
+
+        return SyntaxFactory.ConstructorInitializer(initializerKind, SyntaxFactory.ArgumentList(arguments));
+    }
+
+    private static ArgumentSyntax CreateArgument(GenerateParameter parameter)
+    {
+        ArgumentSyntax argument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameter.Name));
+
+        SyntaxKind refKindKeyword = parameter.Origin.RefKind switch
+        {
+            RefKind.Ref => SyntaxKind.RefKeyword,
+            RefKind.Out => SyntaxKind.OutKeyword,
+            RefKind.In => SyntaxKind.InKeyword,
+            _ => SyntaxKind.None
+        };
+
+        return refKindKeyword == SyntaxKind.None
+            ? argument
+            : argument.WithRefKindKeyword(SyntaxFactory.Token(refKindKeyword));
+    }
+
+    private static MethodDeclarationSyntax CreateOnConstructingPartialMethod()
+    {
+        return SyntaxFactory.MethodDeclaration(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+                "OnConstructing")
+            .AddModifiers(SyntaxFactory.Token(SyntaxKind.PartialKeyword))
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+    }
+
+    private static ImmutableArray<SyntaxToken> GetAccessibilityTokens(Accessibility accessibility)
+    {
+        return accessibility switch
+        {
+            Accessibility.Public => ImmutableArray.Create(SyntaxFactory.Token(SyntaxKind.PublicKeyword)),
+            Accessibility.Private => ImmutableArray.Create(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
+            Accessibility.Internal => ImmutableArray.Create(SyntaxFactory.Token(SyntaxKind.InternalKeyword)),
+            Accessibility.Protected => ImmutableArray.Create(SyntaxFactory.Token(SyntaxKind.ProtectedKeyword)),
+            Accessibility.ProtectedOrInternal => ImmutableArray.Create(
+                SyntaxFactory.Token(SyntaxKind.ProtectedKeyword),
+                SyntaxFactory.Token(SyntaxKind.InternalKeyword)),
+            Accessibility.ProtectedAndInternal => ImmutableArray.Create(
+                SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
+                SyntaxFactory.Token(SyntaxKind.ProtectedKeyword)),
+            _ => ImmutableArray<SyntaxToken>.Empty
+        };
     }
 
     private GenerateParameterList CreateParameterList(ConstructorInfo info)
     {
         List<GenerateParameter> parameters = new();
-        List<GenerateParameter> baseParameter = new();
+        List<GenerateParameter> initializerParameters = new();
 
         static GenerateParameter Create(ParameterInfo parameter, int index)
         {
-            string fullParameterType = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             string? parameterName = parameter.AssignmentTargetMemberName ?? parameter.Name;
             if (parameterName != null)
             {
@@ -82,43 +244,49 @@ internal class GenerateConstructorTask
                 {
                     parameterName = parameterName.Substring(1);
                 }
-                parameterName = char.ToLower(parameterName[0]) + parameterName.Substring(1);
+
+                if (parameterName.Length > 0)
+                {
+                    parameterName = char.ToLower(parameterName[0]) + parameterName.Substring(1);
+                }
             }
             if (string.IsNullOrWhiteSpace(parameterName))
             {
                 parameterName = $"para{index}";
             }
-            return new GenerateParameter(fullParameterType, parameterName!, parameter.IsOptional, parameter);
+            return new GenerateParameter(parameter.Type, parameterName!, parameter.IsOptional, parameter);
         }
 
         int index = 0;
-        foreach (ParameterInfo? parameter in info.Parameters)
+        foreach (ParameterInfo parameter in info.Parameters)
         {
             parameters.Add(Create(parameter, index));
             index++;
         }
 
-        foreach (ParameterInfo? parameter in info.BaseParameters)
+        foreach (ParameterInfo parameter in info.InitializerParameters)
         {
-            baseParameter.Add(Create(parameter, index));
+            initializerParameters.Add(Create(parameter, index));
             index++;
         }
 
-        List<GenerateParameter> allParameters = parameters.Concat(baseParameter).ToList();
+        List<GenerateParameter> allParameters = parameters.Concat(initializerParameters).ToList();
         DeDuplicateNames(allParameters);
-        return new GenerateParameterList(allParameters,
-                                         baseParameter, parameters);
+        EscapeKeywords(allParameters);
+        return new GenerateParameterList(allParameters, initializerParameters, parameters);
     }
-    
-    
-    private void DeDuplicateNames(IReadOnlyCollection<GenerateParameter> allParameters)
+
+    private static void DeDuplicateNames(IReadOnlyCollection<GenerateParameter> allParameters)
     {
+        HashSet<string> usedNames = new(StringComparer.Ordinal);
+
         foreach (GenerateParameter parameter in allParameters)
         {
             string baseName = parameter.Name;
             string workingName = baseName;
             int counter = 1;
-            while (allParameters.Count(x => x.Name == workingName) >= 2)
+
+            while (!usedNames.Add(workingName))
             {
                 workingName = $"{baseName}{counter}";
                 counter++;
@@ -128,8 +296,21 @@ internal class GenerateConstructorTask
         }
     }
 
+    private static void EscapeKeywords(IReadOnlyCollection<GenerateParameter> allParameters)
+    {
+        foreach (GenerateParameter parameter in allParameters)
+        {
+            parameter.Name = EscapeIfKeyword(parameter.Name);
+        }
+    }
+
+    private static string EscapeIfKeyword(string identifier)
+    {
+        return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ? "@" + identifier : identifier;
+    }
+
     private record GenerateParameterList(IReadOnlyList<GenerateParameter> AllParameters,
-                                         IReadOnlyList<GenerateParameter> BaseParameters,
+                                         IReadOnlyList<GenerateParameter> InitializerParameters,
                                          IReadOnlyList<GenerateParameter> Parameters);
 
     private record GenerateParameter(string Type, string Name, bool IsOptional, ParameterInfo Origin)
