@@ -1,0 +1,20 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.ChildType_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class ChildType
+    {
+        public ChildType(string baseA, int baseB) : base(baseA, baseB)
+        {
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

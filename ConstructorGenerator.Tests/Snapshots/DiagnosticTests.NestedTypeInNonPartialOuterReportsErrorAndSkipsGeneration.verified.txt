@@ -1,0 +1,5 @@
+﻿{
+  Diagnostics: [
+    (5,14): error CG0001: Type 'Outer' must be declared partial for a constructor to be generated
+  ]
+}

@@ -1,0 +1,23 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Sample
+    {
+        public Sample(global::System.Collections.Generic.List<string> items, global::System.Collections.Generic.Dictionary<string, int> lookup, (int Id, string Name) tuple)
+        {
+            Items = items;
+            Lookup = lookup;
+            Tuple = tuple;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

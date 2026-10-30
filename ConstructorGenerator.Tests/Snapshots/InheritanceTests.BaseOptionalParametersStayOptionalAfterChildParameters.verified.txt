@@ -1,0 +1,21 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.ChildType_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class ChildType
+    {
+        public ChildType(bool flag, string required, int optional = default) : base(required, optional)
+        {
+            Flag = flag;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

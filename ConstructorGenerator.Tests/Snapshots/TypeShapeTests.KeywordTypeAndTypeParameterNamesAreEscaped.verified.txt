@@ -1,0 +1,21 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.class`1_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class @class<@event>
+    {
+        public @class(@event value)
+        {
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

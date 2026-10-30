@@ -1,0 +1,25 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Outer`1+Inner_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Outer<T>
+        where T : class
+    {
+        public partial class Inner
+        {
+            public Inner(string value)
+            {
+                Value = value;
+                OnConstructing();
+            }
+
+            partial void OnConstructing();
+        }
+    }
+}
+    }
+  ]
+}

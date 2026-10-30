@@ -1,0 +1,22 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial struct Sample
+    {
+        public Sample(int value, string name) : this()
+        {
+            Value = value;
+            Name = name;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

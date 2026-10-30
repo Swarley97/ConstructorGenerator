@@ -4,12 +4,21 @@ using Microsoft.CodeAnalysis;
 
 namespace ConstructorGenerator.Model;
 
-internal record ConstructorInfo(INamedTypeSymbol Type, 
-								Accessibility ConstructorAccessibility,
-								IReadOnlyCollection<ParameterInfo> Parameters,
-								IReadOnlyCollection<ParameterInfo> BaseParameters)
+internal enum ConstructorInitializerKind
 {
-	private IReadOnlyCollection<ParameterInfo>? _allParameters;
+	None,
+	Base,
+	This
+}
 
-	public IReadOnlyCollection<ParameterInfo> AllParameters => _allParameters ??= Parameters.Concat(BaseParameters).ToArray();
+internal record ConstructorInfo(TypeModel Type, 
+								Accessibility ConstructorAccessibility,
+								EquatableArray<ParameterInfo> Parameters,
+								ConstructorInitializerKind InitializerKind,
+								EquatableArray<ParameterInfo> InitializerParameters,
+								EquatableArray<DiagnosticInfo> Diagnostics)
+{
+	public IEnumerable<ParameterInfo> AllParameters => Parameters.Concat(InitializerParameters);
+
+	public bool RequiresNullableContext => AllParameters.Any(x => x.RequiresNullableContext);
 }

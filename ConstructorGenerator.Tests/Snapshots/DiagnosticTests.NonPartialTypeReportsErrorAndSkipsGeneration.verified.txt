@@ -1,0 +1,5 @@
+﻿{
+  Diagnostics: [
+    (6,14): error CG0001: Type 'Sample' must be declared partial for a constructor to be generated
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  GeneratedSources: [
+    {
+      HintName: Demo.IOuter+Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial interface IOuter
+    {
+        public partial class Sample
+        {
+            public Sample(string value)
+            {
+                Value = value;
+                OnConstructing();
+            }
+
+            partial void OnConstructing();
+        }
+    }
+}
+    }
+  ]
+}

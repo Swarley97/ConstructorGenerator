@@ -1,6 +1,6 @@
 ﻿namespace ConstructorGenerator.Attributes
 {
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class GenerateFullConstructorAttribute : Attribute
     {
     }

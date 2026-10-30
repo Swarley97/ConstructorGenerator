@@ -1,0 +1,38 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Foo_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Foo
+    {
+        public Foo(string value)
+        {
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.Foo`1_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Foo<T>
+    {
+        public Foo(T value)
+        {
+            Value = value;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.BaseType_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class BaseType
+    {
+        public BaseType(string baseValue)
+        {
+            BaseValue = baseValue;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.ChildType_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class ChildType
+    {
+        public ChildType(int childValue, string baseValue) : base(baseValue)
+        {
+            ChildValue = childValue;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial record Sample
+    {
+        public Sample(int extra, string positional) : this(positional)
+        {
+            Extra = extra;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

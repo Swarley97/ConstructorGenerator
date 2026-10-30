@@ -1,0 +1,55 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Child_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Child
+    {
+        public Child(bool childValue, int parentValue, string grandValue) : base(parentValue, grandValue)
+        {
+            ChildValue = childValue;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.GrandParent_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class GrandParent
+    {
+        public GrandParent(string grandValue)
+        {
+            GrandValue = grandValue;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.Parent_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Parent
+    {
+        public Parent(int parentValue, string grandValue) : base(grandValue)
+        {
+            ParentValue = parentValue;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

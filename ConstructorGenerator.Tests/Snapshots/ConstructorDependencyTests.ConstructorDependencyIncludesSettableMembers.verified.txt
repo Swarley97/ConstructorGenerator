@@ -1,0 +1,22 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Sample
+    {
+        public Sample(string mutableProperty, string mutableField)
+        {
+            MutableProperty = mutableProperty;
+            MutableField = mutableField;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

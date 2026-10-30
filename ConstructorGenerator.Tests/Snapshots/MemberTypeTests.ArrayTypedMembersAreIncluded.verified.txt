@@ -1,0 +1,22 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Sample
+    {
+        public Sample(string[] names, int[][] matrix)
+        {
+            Names = names;
+            Matrix = matrix;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}
