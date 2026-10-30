@@ -68,4 +68,52 @@ public class DiagnosticTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task NestedTypeInNonPartialOuterReportsErrorAndSkipsGeneration()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            public class Outer
+            {
+                [GenerateFullConstructor]
+                public partial class Inner
+                {
+                    public readonly string Value;
+                }
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task ExistingByValueConstructorDoesNotConflictWithRefConstructor()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            public class Base
+            {
+                protected Base(ref int value)
+                {
+                }
+            }
+
+            [GenerateBaseConstructorCall]
+            public partial class Child : Base
+            {
+                public Child(int value) : base(ref value)
+                {
+                }
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

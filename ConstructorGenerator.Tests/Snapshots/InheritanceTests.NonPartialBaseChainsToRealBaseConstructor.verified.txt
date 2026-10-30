@@ -1,0 +1,24 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Child_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Child
+    {
+        public Child(string value) : base(value)
+        {
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ],
+  Diagnostics: [
+    (6,14): error CG0001: Type 'Base' must be declared partial for a constructor to be generated,
+    (10,12): warning CG0002: Type 'Base' already declares a constructor with the same signature as the generated one; generation was skipped
+  ]
+}

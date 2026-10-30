@@ -46,8 +46,10 @@ internal class GenerateConstructorTask
 
     private static TypeDeclarationSyntax CreateTypeDeclaration(TypeDeclarationModel type)
     {
+        string modifiers = type.Modifiers.Length == 0 ? string.Empty : $"{type.Modifiers} ";
+        string constraints = type.Constraints.Length == 0 ? string.Empty : $" {type.Constraints}";
         string declaration =
-            $"{type.Accessibility} partial {type.Kind} {type.Name}{type.TypeParameterSuffix} {{ }}";
+            $"{type.Accessibility} {modifiers}partial {type.Kind} {type.Name}{type.TypeParameterSuffix}{constraints} {{ }}";
 
         return (TypeDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(declaration)!;
     }
@@ -78,6 +80,12 @@ internal class GenerateConstructorTask
         {
             constructorDeclaration = constructorDeclaration.WithInitializer(
                 CreateConstructorInitializer(constructorInfo.InitializerKind, parameterList));
+        }
+        else if (constructorInfo.Type.Declaration.Kind.EndsWith("struct", StringComparison.Ordinal))
+        {
+            // a struct constructor must assign every field; chaining to this() default-initializes the unselected ones
+            constructorDeclaration = constructorDeclaration.WithInitializer(
+                SyntaxFactory.ConstructorInitializer(SyntaxKind.ThisConstructorInitializer));
         }
 
         return constructorDeclaration;
@@ -177,7 +185,7 @@ internal class GenerateConstructorTask
                                                                              GenerateParameterList parameterList)
     {
         SeparatedSyntaxList<ArgumentSyntax> arguments = SyntaxFactory.SeparatedList(
-            parameterList.InitializerParameters.Select(CreateArgument));
+            parameterList.InitializerParameters.OrderBy(GetParameterOrder).Select(CreateArgument));
 
         SyntaxKind initializerKind = kind == ConstructorInitializerKind.This
             ? SyntaxKind.ThisConstructorInitializer

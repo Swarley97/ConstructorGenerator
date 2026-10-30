@@ -283,4 +283,62 @@ public class TypeShapeTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task StructWithUnselectedFieldChainsToDefaultConstructor()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial struct Sample
+            {
+                public readonly int Value;
+                public int Mutable;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task ReadonlyStructKeepsReadonlyModifier()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public readonly partial struct Sample
+            {
+                public readonly int Value;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task GenericContainingTypeKeepsConstraints()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            public partial class Outer<T> where T : class
+            {
+                [GenerateFullConstructor]
+                public partial class Inner
+                {
+                    public readonly string Value;
+                }
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

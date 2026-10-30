@@ -10,14 +10,74 @@ namespace ConstructorGenerator.Model;
 internal record TypeDeclarationModel(string Name,
     string Kind,
     string Accessibility,
-    string TypeParameterSuffix)
+    string TypeParameterSuffix,
+    string Modifiers,
+    string Constraints)
 {
     public static TypeDeclarationModel Create(INamedTypeSymbol type)
     {
         return new TypeDeclarationModel(type.Name,
             GetKindText(type),
             GetAccessibilityText(type.DeclaredAccessibility),
-            GetTypeParameterSuffix(type));
+            GetTypeParameterSuffix(type),
+            GetModifiers(type),
+            GetConstraints(type));
+    }
+
+    private static string GetModifiers(INamedTypeSymbol type)
+    {
+        List<string> modifiers = new();
+        if (type.IsReadOnly)
+        {
+            modifiers.Add("readonly");
+        }
+
+        if (type.IsRefLikeType)
+        {
+            modifiers.Add("ref");
+        }
+
+        return string.Join(" ", modifiers);
+    }
+
+    private static string GetConstraints(INamedTypeSymbol type)
+    {
+        List<string> clauses = new();
+        foreach (ITypeParameterSymbol typeParameter in type.TypeParameters)
+        {
+            List<string> constraints = new();
+            if (typeParameter.HasReferenceTypeConstraint)
+            {
+                constraints.Add("class");
+            }
+            else if (typeParameter.HasUnmanagedTypeConstraint)
+            {
+                constraints.Add("unmanaged");
+            }
+            else if (typeParameter.HasValueTypeConstraint)
+            {
+                constraints.Add("struct");
+            }
+            else if (typeParameter.HasNotNullConstraint)
+            {
+                constraints.Add("notnull");
+            }
+
+            constraints.AddRange(typeParameter.ConstraintTypes.Select(x =>
+                x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+
+            if (typeParameter.HasConstructorConstraint && !typeParameter.HasValueTypeConstraint)
+            {
+                constraints.Add("new()");
+            }
+
+            if (constraints.Count > 0)
+            {
+                clauses.Add($"where {typeParameter.Name} : {string.Join(", ", constraints)}");
+            }
+        }
+
+        return string.Join(" ", clauses);
     }
 
     private static string GetKindText(INamedTypeSymbol type)

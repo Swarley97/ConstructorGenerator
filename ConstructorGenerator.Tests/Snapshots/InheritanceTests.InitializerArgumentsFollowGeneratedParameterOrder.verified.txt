@@ -1,0 +1,55 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Leaf_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Leaf
+    {
+        public Leaf(string own, string required, int? optional = default) : base(required, optional)
+        {
+            Own = own;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.Middle_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Middle
+    {
+        public Middle(string required, int? optional = default) : base(required)
+        {
+            Optional = optional;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    },
+    {
+      HintName: Demo.Root_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Root
+    {
+        public Root(string required)
+        {
+            Required = required;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

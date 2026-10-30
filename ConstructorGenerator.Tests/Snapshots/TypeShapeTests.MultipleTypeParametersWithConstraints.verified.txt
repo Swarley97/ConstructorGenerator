@@ -6,6 +6,7 @@
 namespace Demo
 {
     public partial class Sample<TKey, TValue>
+        where TKey : class where TValue : struct
     {
         public Sample(TKey key, TValue value)
         {

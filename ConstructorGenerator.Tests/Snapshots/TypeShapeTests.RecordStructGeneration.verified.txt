@@ -7,7 +7,7 @@ namespace Demo
 {
     public partial record struct Sample
     {
-        public Sample(string value)
+        public Sample(string value) : this()
         {
             Value = value;
             OnConstructing();

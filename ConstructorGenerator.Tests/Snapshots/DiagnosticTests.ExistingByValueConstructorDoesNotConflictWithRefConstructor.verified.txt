@@ -1,0 +1,20 @@
+﻿{
+  GeneratedSources: [
+    {
+      HintName: Demo.Child_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public partial class Child
+    {
+        public Child(ref int value) : base(ref value)
+        {
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

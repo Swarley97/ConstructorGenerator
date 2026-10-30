@@ -264,4 +264,63 @@ public class InheritanceTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task InitializerArgumentsFollowGeneratedParameterOrder()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial class Root
+            {
+                public readonly string Required;
+            }
+
+            [GenerateFullConstructor]
+            public partial class Middle : Root
+            {
+                [ConstructorDependency(IsOptional = true)]
+                public readonly int? Optional;
+            }
+
+            [GenerateFullConstructor]
+            public partial class Leaf : Middle
+            {
+                public readonly string Own;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task NonPartialBaseChainsToRealBaseConstructor()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public class Base
+            {
+                public readonly string Value;
+
+                public Base(string value)
+                {
+                    Value = value;
+                }
+            }
+
+            [GenerateBaseConstructorCall]
+            public partial class Child : Base
+            {
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }

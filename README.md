@@ -59,7 +59,7 @@ Only for the following members a constructor parameter will be generated
 - Get only Properties or init only properties with no initializer 
 - Properties or fields with the `[ConstructorDependency]` attribute (this override the rules above)
 
-`const` fields, events, non-auto
+`const` fields, events and non-auto properties are always ignored.
 
 **Examples**
 ```csharp
@@ -168,7 +168,7 @@ public partial class MyClass
 [GenerateFullConstructor]
 public partial class MyDerivedClass : MyClass
 {
-    public IDependencyC
+    public IDependencyC DependencyC { get; }
 }
 ```
 
@@ -229,7 +229,7 @@ public partial class MyClass
 The generated constructor will look like this:
 
 ```csharp
-IDependencyB dependencyB = default)
+public MyClass(ILogger logger, IDependencyA dependency, IDependencyB dependencyB = default)
 {
     _logger = logger;
     _dependency = dependency;

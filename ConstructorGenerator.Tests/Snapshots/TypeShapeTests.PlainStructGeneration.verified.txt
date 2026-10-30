@@ -7,7 +7,7 @@ namespace Demo
 {
     public partial struct Sample
     {
-        public Sample(int value, string name)
+        public Sample(int value, string name) : this()
         {
             Value = value;
             Name = name;
