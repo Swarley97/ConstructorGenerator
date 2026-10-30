@@ -62,4 +62,29 @@ public class IncrementalTests
         Assert.That(sourceOutputSteps.SelectMany(x => x.Outputs).Select(x => x.Reason),
             Is.All.Not.EqualTo(IncrementalStepRunReason.Cached));
     }
+
+    [Test]
+    public void ChangedTypeKeepsOutputOfOtherTypeCached()
+    {
+        string otherSource = Source.Replace("Sample", "Other");
+        CSharpCompilation compilation = GeneratorTestHelper.CreateCompilation(Source, otherSource);
+        GeneratorDriver driver = GeneratorTestHelper.CreateDriver(trackIncrementalGeneratorSteps: true);
+        driver = driver.RunGenerators(compilation);
+
+        CSharpCompilation changed = compilation.ReplaceSyntaxTree(
+            compilation.SyntaxTrees.First(),
+            CSharpSyntaxTree.ParseText(Source.Replace("string Value", "int Value"),
+                new CSharpParseOptions(LanguageVersion.CSharp10)));
+        driver = driver.RunGenerators(changed);
+
+        IncrementalStepRunReason[] reasons = driver.GetRunResult().Results
+            .Single()
+            .TrackedOutputSteps
+            .SelectMany(x => x.Value)
+            .SelectMany(x => x.Outputs)
+            .Select(x => x.Reason)
+            .ToArray();
+
+        Assert.That(reasons.Count(x => x == IncrementalStepRunReason.Cached), Is.EqualTo(1));
+    }
 }
