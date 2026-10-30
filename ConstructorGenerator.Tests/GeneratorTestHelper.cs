@@ -52,7 +52,8 @@ internal static class GeneratorTestHelper
             syntaxTrees: sources.Select(x => CSharpSyntaxTree.ParseText(x, ParseOptions)),
             references: GetMetadataReferences(),
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
-                nullableContextOptions: NullableContextOptions.Enable));
+                nullableContextOptions: NullableContextOptions.Enable,
+                allowUnsafe: true));
     }
 
     public static GeneratorDriver CreateDriver(bool trackIncrementalGeneratorSteps = false)

@@ -1,0 +1,22 @@
+{
+  GeneratedSources: [
+    {
+      HintName: Demo.Sample_ConstructorGenerator.g.cs,
+      Source:
+namespace Demo
+{
+    public unsafe partial class Sample
+    {
+        public Sample(int* pointer, delegate*<int, void> callback)
+        {
+            Pointer = pointer;
+            Callback = callback;
+            OnConstructing();
+        }
+
+        partial void OnConstructing();
+    }
+}
+    }
+  ]
+}

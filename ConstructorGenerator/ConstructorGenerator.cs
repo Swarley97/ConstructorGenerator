@@ -13,29 +13,17 @@ namespace ConstructorGenerator
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // Syntax nodes are reference-stable across runs as long as their tree is unchanged, whereas symbols
-            // are recreated for every compilation. Keeping symbols out of the pipeline until the (equatable)
-            // ConstructorInfo is produced is what allows the source output to be cached.
-            IncrementalValuesProvider<TypeDeclarationSyntax> interestingClasses =
-                context.SyntaxProvider.CreateSyntaxProvider((node, _) => IsInterestingClass(node),
-                                                            (syntaxContext, _) => GetTypeDeclaration(syntaxContext))
-                    .Where(x => x is not null)!;
-
-            IncrementalValuesProvider<ConstructorInfo> constructorInfos = interestingClasses.Collect()
-                .Combine(context.CompilationProvider)
-                .SelectMany((input, cancellationToken) =>
-                {
-                    (ImmutableArray<TypeDeclarationSyntax> declarations, Compilation compilation) = input;
-
-                    ImmutableArray<INamedTypeSymbol> classes = declarations
-                        .Select(x => compilation.GetSemanticModel(x.SyntaxTree).GetDeclaredSymbol(x, cancellationToken))
-                        .OfType<INamedTypeSymbol>()
-                        .Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
-                        .ToImmutableArray();
-
-                    ConstructorInfoBuilder builder = new();
-                    return builder.Build(classes);
-                });
+            // Each annotated declaration is turned into its own symbol-free, equatable ConstructorInfo. There is no
+            // Collect() over the declarations combined with the whole compilation, so an unrelated change does not
+            // force every model to be rebuilt as one unit; unchanged models compare equal and their output stays cached.
+            IncrementalValuesProvider<ConstructorInfo> constructorInfos = context.SyntaxProvider
+                .CreateSyntaxProvider((node, _) => IsInterestingClass(node),
+                                      (syntaxContext, cancellationToken) => GetConstructorInfo(syntaxContext, cancellationToken))
+                .Where(x => x is not null)
+                .Select((x, _) => x!)
+                // a type split into several annotated partial declarations yields the same model more than once
+                .Collect()
+                .SelectMany((infos, _) => infos.Distinct());
 
             // ConstructorInfo is symbol-free and equatable, so everything from here on is cached
             // as long as the generated constructor does not change.
@@ -68,9 +56,17 @@ namespace ConstructorGenerator
             };
         }
 
-        private static TypeDeclarationSyntax? GetTypeDeclaration(GeneratorSyntaxContext syntaxContext)
+        private static ConstructorInfo? GetConstructorInfo(GeneratorSyntaxContext syntaxContext,
+                                                           System.Threading.CancellationToken cancellationToken)
         {
-            return syntaxContext.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
+            TypeDeclarationSyntax? declaration = syntaxContext.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>();
+            if (declaration == null ||
+                syntaxContext.SemanticModel.GetDeclaredSymbol(declaration, cancellationToken) is not INamedTypeSymbol type)
+            {
+                return null;
+            }
+
+            return new ConstructorInfoBuilder().BuildFor(type);
         }
     }
 }

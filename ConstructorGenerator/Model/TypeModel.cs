@@ -28,6 +28,15 @@ internal record TypeDeclarationModel(string Name,
     private static string GetModifiers(INamedTypeSymbol type)
     {
         List<string> modifiers = new();
+        // unsafe only applies to the declaration it is written on, so the generated part needs it too (pointer members)
+        if (type.DeclaringSyntaxReferences
+            .Select(x => x.GetSyntax())
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax>()
+            .Any(x => x.Modifiers.Any(SyntaxKind.UnsafeKeyword)))
+        {
+            modifiers.Add("unsafe");
+        }
+
         if (type.IsReadOnly)
         {
             modifiers.Add("readonly");
@@ -91,6 +100,11 @@ internal record TypeDeclarationModel(string Name,
         if (type.IsRecord)
         {
             return "record";
+        }
+
+        if (type.TypeKind == TypeKind.Interface)
+        {
+            return "interface";
         }
 
         return type.TypeKind == TypeKind.Struct ? "struct" : "class";

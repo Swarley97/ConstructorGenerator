@@ -26,7 +26,7 @@ dotnet add package ConstructorGenerator
 
 ### Prerequisites
 
-ConstructorGenerator requires C# 9.0 or later.
+ConstructorGenerator requires C# 10.0 or later.
 
 ### Usage
 

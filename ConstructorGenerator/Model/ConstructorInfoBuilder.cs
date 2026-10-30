@@ -14,8 +14,6 @@ internal class ConstructorInfoBuilder
     private static readonly SymbolDisplayFormat TypeDisplayFormat = SymbolDisplayFormat.FullyQualifiedFormat
         .AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    private List<INamedTypeSymbol> _typesToInspect = new();
-
     private readonly Dictionary<INamedTypeSymbol, ConstructorInfo> _constructorInfos =
         new(SymbolEqualityComparer.Default);
 
@@ -24,23 +22,26 @@ internal class ConstructorInfoBuilder
 
     private readonly MemberValidator _memberValidator = new();
 
-    public IReadOnlyCollection<ConstructorInfo> Build(IEnumerable<INamedTypeSymbol> classesToInspect)
+    /// <summary>
+    /// Builds the model for a single annotated type. Annotated base types are resolved on demand, so the
+    /// result depends only on the type itself and its base chain, not on the set of all annotated types.
+    /// </summary>
+    public ConstructorInfo BuildFor(INamedTypeSymbol namedTypeSymbol)
     {
-        _typesToInspect = classesToInspect.OrderBy(GetTypeHierarchyDepth).ToList();
-
-        return _typesToInspect.Select(Build).ToList();
+        return Build(namedTypeSymbol);
     }
 
-    private int GetTypeHierarchyDepth(INamedTypeSymbol namedTypeSymbol)
+    /// <summary>
+    /// Mirrors the syntax predicate of the generator: a source type with a generator attribute on itself or on one of its members.
+    /// </summary>
+    private static bool IsGenerationTarget(INamedTypeSymbol namedTypeSymbol)
     {
-        int depth = 0;
-        INamedTypeSymbol? currentType = namedTypeSymbol;
-        while (currentType != null)
-        {
-            depth++;
-            currentType = currentType.BaseType;
-        }
-        return depth;
+        if (namedTypeSymbol.DeclaringSyntaxReferences.Length == 0)
+            return false;
+
+        return WellKnownAttributes.GenerateFullConstructorAttribute.IsDefined(namedTypeSymbol) ||
+               WellKnownAttributes.GenerateBaseConstructorCallAttribute.IsDefined(namedTypeSymbol) ||
+               namedTypeSymbol.GetMembers().Any(WellKnownAttributes.ConstructorDependencyAttribute.IsDefined);
     }
 
     private Accessibility GetAccessibility(INamedTypeSymbol namedTypeSymbol)
@@ -248,9 +249,9 @@ internal class ConstructorInfoBuilder
         if (baseType == null || baseType.SpecialType == SpecialType.System_Object)
             return new List<ParameterModel>();
 
-        // _typesToInspect holds declaration symbols, whereas a base type is usually a constructed generic
+        // a base type is usually a constructed generic, the generated constructor belongs to its declaration
         INamedTypeSymbol originalBaseType = baseType.OriginalDefinition;
-        if (!_typesToInspect.Contains(originalBaseType, SymbolEqualityComparer.Default))
+        if (!IsGenerationTarget(originalBaseType))
             return GetParameterInfos(baseType, namedTypeSymbol);
 
         ConstructorInfo baseInfo = Build(originalBaseType);

@@ -376,4 +376,44 @@ public class TypeShapeTests
 
         return GeneratorTestHelper.Verify(source);
     }
+
+    [Test]
+    public Task TypeNestedInInterfaceReopensInterface()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            public partial interface IOuter
+            {
+                [GenerateFullConstructor]
+                public partial class Sample
+                {
+                    public readonly string Value;
+                }
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
+
+    [Test]
+    public Task UnsafeTypeWithPointerMemberKeepsUnsafeContext()
+    {
+        const string source = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public unsafe partial class Sample
+            {
+                public readonly int* Pointer;
+                public readonly delegate*<int, void> Callback;
+            }
+            """;
+
+        return GeneratorTestHelper.Verify(source);
+    }
 }
