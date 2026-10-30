@@ -30,7 +30,7 @@ ConstructorGenerator requires C# 9.0 or later.
 
 ### Usage
 
-Add the `[GenerateFullConstructor]` attribute to your class or struct and a constructor will be generated.
+Add the `[GenerateFullConstructor]` attribute to your class, struct, record or record struct and a constructor will be generated. The type must be declared `partial`, otherwise the error `CG0001` is reported. If the type already declares a constructor with the same signature, the warning `CG0002` is reported and generation is skipped.
 
 ```csharp
 [GenerateFullConstructor]
@@ -58,6 +58,8 @@ Only for the following members a constructor parameter will be generated
 - Read only fields with no initializer
 - Get only Properties or init only properties with no initializer 
 - Properties or fields with the `[ConstructorDependency]` attribute (this override the rules above)
+
+`const` fields, events, non-auto
 
 **Examples**
 ```csharp
@@ -156,17 +158,17 @@ ConstructorGenerator supports inheritance. You can put the `[GenerateFullConstru
 ```csharp
 
 [GenerateFullConstructor]
-public MyClass(ILogger logger, IDependencyA dependency, IDependencyB dependencyB)
+public partial class MyClass
 {
-    _logger = logger;
-    _dependency = dependency;
-    _dependencyB = dependencyB;
+    private readonly ILogger _logger;
+    private readonly IDependencyA _dependency;
+    private readonly IDependencyB _dependencyB;
 }
 
 [GenerateFullConstructor]
 public partial class MyDerivedClass : MyClass
 {
-    public IDependencyC DependencyC { get; }
+    public IDependencyC
 }
 ```
 
@@ -227,7 +229,7 @@ public partial class MyClass
 The generated constructor will look like this:
 
 ```csharp
-public MyClass(ILogger logger, IDependencyA dependency, IDependencyB dependencyB = null)
+IDependencyB dependencyB = default)
 {
     _logger = logger;
     _dependency = dependency;
@@ -256,11 +258,11 @@ public partial class MyClass
 
 ### Constructor accessibility
 
-ConstructorGenerator supports specifying the accessibility of the generated constructor. You can put the `[ConstructorAccessibility]` attribute on a class or struct and the constructor will be generated with the specified accessibility.
+You can put the `[GeneratedConstructorSettings]` attribute on a class or struct and set its `ConstructorAccessibility` property (`Default`, `SameAsClass`, `Private`, `Protected`, `Internal`, `Public`).
 
 ```csharp
 [GenerateFullConstructor]
-[ConstructorAccessibility(Accessibility.Internal)]
+[GeneratedConstructorSettings(ConstructorAccessibility = ConstructorAccessibility.Internal)]
 public partial class MyClass
 {
     private readonly ILogger _logger;
