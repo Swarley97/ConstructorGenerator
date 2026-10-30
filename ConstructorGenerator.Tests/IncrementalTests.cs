@@ -87,4 +87,72 @@ public class IncrementalTests
 
         Assert.That(reasons.Count(x => x == IncrementalStepRunReason.Cached), Is.EqualTo(1));
     }
+
+    [Test]
+    public void ChangedMemberInOtherPartialDeclarationRegeneratesOutput()
+    {
+        const string otherPart = """
+            namespace Demo;
+
+            public partial class Sample
+            {
+                public readonly string Other;
+            }
+            """;
+        CSharpCompilation compilation = GeneratorTestHelper.CreateCompilation(Source, otherPart);
+        GeneratorDriver driver = GeneratorTestHelper.CreateDriver();
+        driver = driver.RunGenerators(compilation);
+
+        CSharpCompilation changed = compilation.ReplaceSyntaxTree(
+            compilation.SyntaxTrees.Last(),
+            CSharpSyntaxTree.ParseText(otherPart.Replace("string Other", "int Other"),
+                new CSharpParseOptions(LanguageVersion.CSharp10)));
+        driver = driver.RunGenerators(changed);
+
+        string generated = driver.GetRunResult().GeneratedTrees.Single().ToString();
+
+        Assert.That(generated, Does.Contain("int other"));
+    }
+
+    [Test]
+    public void ChangedMemberOfGeneratedBaseTypeRegeneratesDerivedOutput()
+    {
+        const string baseSource = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial class BaseSample
+            {
+                public readonly string BaseValue;
+            }
+            """;
+        const string derivedSource = """
+            using ConstructorGenerator.Attributes;
+
+            namespace Demo;
+
+            [GenerateFullConstructor]
+            public partial class Derived : BaseSample
+            {
+                public readonly string Value;
+            }
+            """;
+        CSharpCompilation compilation = GeneratorTestHelper.CreateCompilation(baseSource, derivedSource);
+        GeneratorDriver driver = GeneratorTestHelper.CreateDriver();
+        driver = driver.RunGenerators(compilation);
+
+        CSharpCompilation changed = compilation.ReplaceSyntaxTree(
+            compilation.SyntaxTrees.First(),
+            CSharpSyntaxTree.ParseText(baseSource.Replace("string BaseValue", "int BaseValue"),
+                new CSharpParseOptions(LanguageVersion.CSharp10)));
+        driver = driver.RunGenerators(changed);
+
+        string derived = driver.GetRunResult().GeneratedTrees
+            .Single(x => x.FilePath.Contains("Derived"))
+            .ToString();
+
+        Assert.That(derived, Does.Contain("int baseValue"));
+    }
 }
