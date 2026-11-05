@@ -24,6 +24,10 @@
 
 	<ItemGroup>
 		<None Include="$(SolutionDir)README.md" Pack="true" PackagePath="\" Visible="false"/>
+		<None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
+		<None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="false" />
+		<None Include="$(SolutionDir)README.md" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -49,10 +53,7 @@
 
 	<Target Name="AddOutputFilesToPackage" BeforeTargets="GenerateNuspec">
 		<ItemGroup>
-			<None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-			<None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="analyzers/dotnet/cs" Pack="true" Visible="false" />
-			<None Include="$(OutputPath)ConstructorGenerator.Attributes.dll" PackagePath="lib/netstandard2.0" Pack="true" Visible="false" />
-			<None Include="$(SolutionDir)README.md" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+
 		</ItemGroup>
 	</Target>
 
